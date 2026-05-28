@@ -3,6 +3,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { type ExperimentalData, analyzeCutoffAndInterpolation } from '../../utils/mathUtils';
 import DataTable from './DataTable.vue';
 import ChartsPanel from './ChartsPanel.vue';
+import EquationCard from './EquationCard.vue';
+import { parseCsvContent } from '../../utils/csvParser';
 
 // --- State ---
 const isMounted = ref(false);
@@ -10,11 +12,10 @@ const experimentalData = ref<ExperimentalData[]>([]);
 const globalVs = ref(1.0);
 const globalVsUnit = ref('V');
 const globalVoUnit = ref('V');
-const manualFcId = ref<number | null>(null);
 
 // --- Computed ---
 const analysisResult = computed(() => {
-  return analyzeCutoffAndInterpolation(experimentalData.value, globalVs.value, globalVsUnit.value, globalVoUnit.value, manualFcId.value);
+  return analyzeCutoffAndInterpolation(experimentalData.value, globalVs.value, globalVsUnit.value, globalVoUnit.value);
 });
 
 const processedData = computed(() => {
@@ -33,6 +34,43 @@ const closestToCutoffId = computed(() => {
   // Se houver marcação manual, retorna ela (o próprio mathUtils já faz isso, mas fica explícito)
   return analysisResult.value ? analysisResult.value.closestToCutoffId : null;
 });
+
+const selectedPoint = computed(() => {
+  if (closestToCutoffId.value !== null) {
+    return processedData.value.find(p => p.id === closestToCutoffId.value) || null;
+  }
+  return processedData.value[0] || null;
+});
+
+function handleImportCsv(text: string) {
+  try {
+    const parsed = parseCsvContent(text);
+    if (parsed.points.length === 0) {
+      showToast("Nenhum ponto válido encontrado no arquivo CSV.", "error");
+      return;
+    }
+
+    // Se houver global Vs definido, atualiza
+    if (parsed.globalValue !== null && parsed.globalValue !== undefined) {
+      globalVs.value = parsed.globalValue;
+      if (parsed.globalUnit) {
+        globalVsUnit.value = parsed.globalUnit;
+      }
+    }
+
+    // Mapear pontos
+    experimentalData.value = parsed.points.map((p, idx): ExperimentalData => ({
+      id: idx + 1,
+      freq: p.freq,
+      vo: p.vo !== undefined && p.vo !== null ? p.vo : ((p.vMax !== undefined && p.vMax !== null && p.vMin !== undefined && p.vMin !== null) ? Math.abs(p.vMax - p.vMin) : 0),
+      phase: p.phase !== undefined && p.phase !== null ? p.phase : null
+    }));
+
+    showToast(`CSV importado com sucesso: ${parsed.points.length} pontos carregados.`, "success");
+  } catch (err: any) {
+    showToast(`Erro ao ler arquivo CSV: ${err.message}`, "error");
+  }
+}
 
 // --- Modal State ---
 const isConfirmModalOpen = ref(false);
@@ -80,8 +118,7 @@ function saveStateToStorage() {
       experimentalData: experimentalData.value,
       globalVs: globalVs.value,
       globalVsUnit: globalVsUnit.value,
-      globalVoUnit: globalVoUnit.value,
-      manualFcId: manualFcId.value
+      globalVoUnit: globalVoUnit.value
     };
     localStorage.setItem('circuitBookState', JSON.stringify(dataToSave));
   } catch (e) {
@@ -99,7 +136,6 @@ function loadStateFromStorage(): boolean {
         if (parsed.globalVs) globalVs.value = parsed.globalVs;
         if (parsed.globalVsUnit) globalVsUnit.value = parsed.globalVsUnit;
         if (parsed.globalVoUnit) globalVoUnit.value = parsed.globalVoUnit;
-        if (parsed.manualFcId !== undefined) manualFcId.value = parsed.manualFcId;
         return true;
       }
     }
@@ -110,7 +146,7 @@ function loadStateFromStorage(): boolean {
 }
 
 // Watchers to auto-save and auto-sort
-watch([experimentalData, globalVs, globalVsUnit, globalVoUnit, manualFcId], () => {
+watch([experimentalData, globalVs, globalVsUnit, globalVoUnit], () => {
   // Sort automatically by frequency whenever data changes
   experimentalData.value.sort((a, b) => a.freq - b.freq);
   saveStateToStorage();
@@ -122,10 +158,6 @@ function updateRow(id: number, field: 'freq' | 'vo' | 'phase', value: number | n
   if (index !== -1) {
     experimentalData.value[index][field] = value as any;
   }
-}
-
-function setManualFc(id: number | null) {
-  manualFcId.value = id;
 }
 
 function deleteRow(id: number) {
@@ -306,7 +338,6 @@ onMounted(() => {
         :globalVoUnit="globalVoUnit"
         :maxGvDb="maxGvDb"
         :closestToCutoffId="closestToCutoffId"
-        :manualFcId="manualFcId"
         @updateRow="updateRow"
         @deleteRow="deleteRow"
         @addRow="addRow"
@@ -314,10 +345,24 @@ onMounted(() => {
         @updateVs="updateVs"
         @updateVsUnit="updateVsUnit"
         @updateVoUnit="updateVoUnit"
-        @setManualFc="setManualFc"
         @applyCalibration="applyCalibrationFactor"
         @generateDecades="generateDecades"
         @exportCsv="exportCsv"
+        @importCsv="handleImportCsv"
+      />
+    </div>
+
+    <!-- Equations and Scientific Foundations Details -->
+    <div class="w-full" v-if="experimentalData.length > 0">
+      <EquationCard 
+        :selectedPoint="selectedPoint"
+        :fc="analysisResult ? analysisResult.fc : null"
+        :maxGvDb="maxGvDb"
+        :detectedFilter="analysisResult ? analysisResult.detectedFilter : 'lowpass'"
+        :detectedOrder="analysisResult ? analysisResult.detectedOrder : 1"
+        :globalVs="globalVs"
+        :globalVsUnit="globalVsUnit"
+        :isOpamp="false"
       />
     </div>
 

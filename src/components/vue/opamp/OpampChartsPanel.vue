@@ -2,10 +2,10 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import * as d3 from 'd3';
 import { log10, pow, abs } from 'mathjs';
-import type { ExperimentalData } from '../../utils/mathUtils';
+import type { OpampDataPoint } from '../../../utils/mathUtilsOpamp';
 
 const props = defineProps<{
-  processedData: ExperimentalData[];
+  processedData: OpampDataPoint[];
   cutoffFrequency?: number | null;
 }>();
 
@@ -41,8 +41,8 @@ function getThemeColors() {
 
 function drawChart(
   container: HTMLDivElement | null, 
-  rawData: ExperimentalData[], 
-  yKey: keyof ExperimentalData, 
+  rawData: OpampDataPoint[], 
+  yKey: keyof OpampDataPoint, 
   yLabel: string, 
   lineColor: string,
   pointShape: 'circle' | 'triangle' | 'rect'
@@ -223,7 +223,7 @@ function drawChart(
   }
 
   // Draw Path (Line)
-  const line = d3.line<ExperimentalData>()
+  const line = d3.line<OpampDataPoint>()
     .x(d => xScale(d.freq))
     .y(d => yScale(d[yKey] as number));
     
@@ -279,7 +279,7 @@ function drawChart(
     .style('z-index', '9999')
     .style('box-shadow', '0 4px 6px -1px rgba(0, 0, 0, 0.1)');
     
-  const bisectFreq = d3.bisector((d: ExperimentalData) => d.freq).left;
+  const bisectFreq = d3.bisector((d: OpampDataPoint) => d.freq).left;
   
   // Invisible rect to capture mouse events over the entire chart area
   g.append('rect')
@@ -322,7 +322,7 @@ function drawChart(
     });
 }
 
-function drawNyquist(container: HTMLDivElement | null, rawData: ExperimentalData[]) {
+function drawNyquist(container: HTMLDivElement | null, rawData: OpampDataPoint[]) {
   if (!container || rawData.length === 0) return;
   const data = rawData.filter(d => d.phase !== null && d.phase !== undefined && !isNaN(d.phase) && d.gvLinear !== null && d.gvLinear !== undefined && !isNaN(d.gvLinear));
   if (data.length === 0) {
@@ -546,7 +546,7 @@ function drawNyquist(container: HTMLDivElement | null, rawData: ExperimentalData
     });
 }
 
-function drawNichols(container: HTMLDivElement | null, rawData: ExperimentalData[]) {
+function drawNichols(container: HTMLDivElement | null, rawData: OpampDataPoint[]) {
   if (!container || rawData.length === 0) return;
   const data = rawData.filter(d => d.phase !== null && d.phase !== undefined && !isNaN(d.phase) && d.gvDb !== null && d.gvDb !== undefined && !isNaN(d.gvDb));
   if (data.length === 0) {
@@ -642,7 +642,7 @@ function drawNichols(container: HTMLDivElement | null, rawData: ExperimentalData
     .text('Ganho Av (dB)');
     
   // Draw Path (Line)
-  const line = d3.line<ExperimentalData>()
+  const line = d3.line<OpampDataPoint>()
     .x(d => xScale(d.phase as number))
     .y(d => yScale(d.gvDb as number));
     
@@ -855,10 +855,10 @@ function exportChart() {
       <div>
         <h2 class="text-lg font-bold tracking-tight text-slate-800 dark:text-white flex items-center gap-2">
           <span class="inline-block h-3 w-3 rounded bg-indigo-500"></span>
-          Painel D3.js (Resposta de Frequência)
+          Painel D3.js (Resposta de Frequência) - Filtros Ativos
         </h2>
         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Visualização avançada e responsiva renderizada vetor a vetor com o poder do D3.
+          Visualização avançada e responsiva renderizada vetor a vetor com o poder do D3 para filtros de AmpOp.
         </p>
       </div>
       
@@ -990,3 +990,6 @@ function exportChart() {
     </div>
   </div>
 </template>
+
+<style scoped>
+</style>
