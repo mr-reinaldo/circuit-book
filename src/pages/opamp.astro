@@ -1,0 +1,10 @@
+---
+import OpampApp from '../components/vue/opamp/OpampApp.vue';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Filtros Ativos | Circuit Book">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8" id="opamp-analyzer">
+    <OpampApp client:load />
+  </main>
+</Layout>

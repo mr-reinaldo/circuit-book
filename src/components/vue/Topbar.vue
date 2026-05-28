@@ -79,9 +79,11 @@ const toggleTheme = () => {
 
       <!-- Navigation Links -->
       <nav class="hidden md:flex items-center gap-6">
-        <!-- Como o base URL pode não estar disponível via import.meta.env no Vue da mesma forma que no Astro SSG, hardcodamos de acordo com a configuração -->
         <a href="/circuit-book/" class="text-sm font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-1">
-          Analisador
+          Filtros Passivos
+        </a>
+        <a href="/circuit-book/opamp" class="text-sm font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-1">
+          Filtros Ativos (OpAmp)
         </a>
         <a href="/circuit-book/sobre" class="text-sm font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 transition-colors py-1">
           Sobre

@@ -6,6 +6,8 @@ export interface ExperimentalData {
   isInterpolated?: boolean;
   gvLinear?: number;
   gvDb?: number;
+  phaseTheoretical?: number;
+  phaseError?: number | null;
 }
 
 // Regex estrito para validação prévia de segurança do formulário (OWASP Prevention)
@@ -86,13 +88,11 @@ export function formatEngineeringValue(value: number, unitSymbol: string = ""): 
   return `${(value * 1e12).toFixed(2)} p${unitSymbol}`;
 }
 
-// Algoritmo de Busca de Frequência de Corte a -3 dB e Interpolação de Fase
 export function analyzeCutoffAndInterpolation(
   experimentalData: ExperimentalData[],
   globalVs: number,
   globalVsUnit: string = 'V',
-  globalVoUnit: string = 'V',
-  manualFcId: number | null = null
+  globalVoUnit: string = 'V'
 ): {
   processedPoints: ExperimentalData[];
   fc: number | null;
@@ -100,12 +100,14 @@ export function analyzeCutoffAndInterpolation(
   maxGvDb: number;
   closestToCutoffId?: number | null;
   closestToCutoffFreq?: number | null;
+  detectedFilter?: string;
+  detectedOrder?: number;
 } | null {
   // 1. Process experimental data points, sorting them by frequency
   const sortedPoints = [...experimentalData]
     .filter(p => !isNaN(p.freq) && !isNaN(p.vo) && p.freq > 0)
     .sort((a, b) => a.freq - b.freq)
-    .map(p => {
+    .map((p): ExperimentalData => {
       const gvLinear = p.vo / globalVs;
       const gvDb = 20 * Math.log10(gvLinear);
 
@@ -169,7 +171,7 @@ export function analyzeCutoffAndInterpolation(
 
   const vsMult = getMultiplier(globalVsUnit);
   const voMult = getMultiplier(globalVoUnit);
-  const realVs = globalVs * vsMult;
+  const realVs = (globalVs && !isNaN(globalVs) && globalVs !== 0) ? globalVs * vsMult : 1.0;
 
   // 2. Calculate Linear and Logarithmic Gain for all points
   for (let i = 0; i < sortedPoints.length; i++) {
@@ -178,88 +180,79 @@ export function analyzeCutoffAndInterpolation(
       const realVo = vo * voMult;
       const linearGain = realVo / realVs;
       sortedPoints[i].gvLinear = linearGain;
-      sortedPoints[i].gvDb = linearGain > 0 ? 20 * Math.log10(linearGain) : -Infinity;
+      sortedPoints[i].gvDb = linearGain > 0 ? 20 * Math.log10(Math.abs(linearGain)) : -Infinity;
     }
   }
 
   // 3. Find cutoff point: identify max gain Gv_max (dB)
   let maxGvDb = -Infinity;
+  let maxGvLinear = 0;
   
   for (let i = 0; i < sortedPoints.length; i++) {
     if (sortedPoints[i].gvDb !== undefined && (sortedPoints[i].gvDb as number) > maxGvDb) {
       maxGvDb = sortedPoints[i].gvDb as number;
     }
+    if (sortedPoints[i].gvLinear !== undefined && (sortedPoints[i].gvLinear as number) > maxGvLinear) {
+      maxGvLinear = sortedPoints[i].gvLinear as number;
+    }
   }
 
-  const targetGvDb = maxGvDb - 3.0103;
-
-  // Search crossing intervals
+  // High-precision Logarithmic Cutoff Interpolation
+  const targetGv = maxGvLinear * 0.7071;
   let fc = null;
   let phaseC = null;
-  let crossingPrev: ExperimentalData | null = null;
-  let crossingNext: ExperimentalData | null = null;
   let closestToCutoffId: number | null = null;
   let closestToCutoffFreq: number | null = null;
 
-  if (manualFcId !== null) {
-    const manualPoint = sortedPoints.find(p => p.id === manualFcId);
-    if (manualPoint) {
-      fc = manualPoint.freq;
-      phaseC = manualPoint.phase !== null ? manualPoint.phase : 0;
-      closestToCutoffId = manualPoint.id;
-      closestToCutoffFreq = manualPoint.freq;
-    }
-  }
-  
-  if (fc === null) {
+  if (sortedPoints.length > 1) {
     for (let i = 0; i < sortedPoints.length - 1; i++) {
-      if ((sortedPoints[i].gvDb as number) >= targetGvDb && (sortedPoints[i+1].gvDb as number) <= targetGvDb) {
-        crossingPrev = sortedPoints[i];
-        crossingNext = sortedPoints[i+1];
-        break;
+      const gv1 = sortedPoints[i].gvLinear;
+      const gv2 = sortedPoints[i+1].gvLinear;
+
+      if (gv1 !== undefined && gv2 !== undefined && !isNaN(gv1) && !isNaN(gv2)) {
+        // Check if cutoff crosses between these two points
+        if ((gv1 >= targetGv && gv2 <= targetGv) || (gv1 <= targetGv && gv2 >= targetGv)) {
+          const logF1 = Math.log10(sortedPoints[i].freq);
+          const logF2 = Math.log10(sortedPoints[i+1].freq);
+          const denom = gv2 - gv1;
+          const ratio = denom !== 0 ? (targetGv - gv1) / denom : 0.5;
+          
+          const logFc = logF1 + ratio * (logF2 - logF1);
+          fc = Math.pow(10, logFc);
+          
+          closestToCutoffId = Math.abs(gv1 - targetGv) < Math.abs(gv2 - targetGv) 
+                              ? sortedPoints[i].id 
+                              : sortedPoints[i+1].id;
+          closestToCutoffFreq = fc;
+          break;
+        }
       }
-      if ((sortedPoints[i].gvDb as number) <= targetGvDb && (sortedPoints[i+1].gvDb as number) >= targetGvDb) {
-        crossingPrev = sortedPoints[i];
-        crossingNext = sortedPoints[i+1];
-        break;
-      }
-    }
-
-    // Perform logarithmic cutoff interpolation se cruzamento for encontrado
-    if (crossingPrev && crossingNext) {
-      const logF1 = Math.log10(crossingPrev.freq);
-      const logF2 = Math.log10(crossingNext.freq);
-      const g1 = crossingPrev.gvDb as number;
-      const g2 = crossingNext.gvDb as number;
-
-      const logFc = logF1 + ((targetGvDb - g1) / (g2 - g1)) * (logF2 - logF1);
-      fc = Math.pow(10, logFc);
-
-      // Phase interpolation at fc
-      phaseC = (crossingPrev.phase as number) + 
-        ((logFc - logF1) / (logF2 - logF1)) * ((crossingNext.phase as number) - (crossingPrev.phase as number));
     }
   }
 
-  // 4. Closest point search if fc could not be identified or calculated
-  if (fc !== null && manualFcId === null) {
-    const targetGain = maxGvDb - 3.0103;
-    let minGainDiff = Infinity;
-    
+  // Fallback to closest point if no crossing is detected (e.g. single point or incomplete curve)
+  if (fc === null && sortedPoints.length > 0) {
+    let minDiff = Infinity;
+    let bestPoint = sortedPoints[0];
     for (const p of sortedPoints) {
-      if (p.gvDb === undefined) continue;
-      const diff = Math.abs(p.gvDb - targetGain);
-      if (diff < minGainDiff) {
-        minGainDiff = diff;
-        closestToCutoffId = p.id;
-        closestToCutoffFreq = p.freq;
+      if (p.gvLinear !== undefined && !isNaN(p.gvLinear)) {
+        const diff = Math.abs(p.gvLinear - targetGv);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestPoint = p;
+        }
       }
     }
+    fc = bestPoint.freq;
+    closestToCutoffId = bestPoint.id;
+    closestToCutoffFreq = bestPoint.freq;
   }
 
-  // 5. Automatic Theoretical Phase Calculation (Hidden from UI, pure heuristic)
-  if (isAutoPhase && fc !== null) {
-    let detectedFilter = 'unknown';
+  // 5. Automatic Theoretical Phase Calculation & Error Margin Analysis
+  let detectedFilter = 'unknown';
+  let detectedOrder = 1;
+
+  if (fc !== null) {
     const firstGain = sortedPoints[0].gvDb as number;
     const lastGain = sortedPoints[sortedPoints.length - 1].gvDb as number;
     
@@ -271,7 +264,6 @@ export function analyzeCutoffAndInterpolation(
       detectedFilter = 'lowpass';
     }
 
-    let detectedOrder = 1;
     if (detectedFilter === 'lowpass') {
       const decadePoint = sortedPoints.find(p => p.freq >= fc! * 5);
       if (decadePoint) {
@@ -290,31 +282,28 @@ export function analyzeCutoffAndInterpolation(
       }
     }
 
+    // Always calculate theoretical phase for each point
     sortedPoints.forEach(p => {
-      const fRatio = p.freq / fc!;
-      let theoPhase = 0;
+      p.phaseTheoretical = calculateTheoreticalPhase(p.freq, fc!, detectedFilter, detectedOrder, true); // true for passive
       
-      if (detectedFilter === 'lowpass') {
-        if (detectedOrder === 1) {
-          theoPhase = -Math.atan(fRatio) * (180 / Math.PI);
-        } else {
-          theoPhase = -Math.atan2(1.414 * fRatio, 1 - fRatio * fRatio) * (180 / Math.PI);
+      if (p.phase === null || isNaN(p.phase as number)) {
+        if (isAutoPhase) {
+          p.phase = p.phaseTheoretical;
+          p.isInterpolated = true;
+          p.phaseError = 0;
         }
-      } else if (detectedFilter === 'highpass') {
-        if (detectedOrder === 1) {
-          theoPhase = 90 - Math.atan(fRatio) * (180 / Math.PI);
+      } else {
+        // Calculate error percentage compared to theoretical phase
+        if (p.phaseTheoretical !== 0) {
+          p.phaseError = (Math.abs(p.phase - p.phaseTheoretical) / Math.abs(p.phaseTheoretical)) * 100;
         } else {
-          theoPhase = 180 - Math.atan2(1.414 * fRatio, 1 - fRatio * fRatio) * (180 / Math.PI);
+          p.phaseError = Math.abs(p.phase - p.phaseTheoretical); // absolute difference fallback if theoretical is exactly 0
         }
-      } else if (detectedFilter === 'bandpass') {
-        theoPhase = Math.atan(1 / fRatio - fRatio) * (180 / Math.PI);
       }
-      p.phase = theoPhase;
-      p.isInterpolated = true; // Marca como calculada para o CSV
     });
 
-    if (detectedFilter === 'lowpass') phaseC = detectedOrder === 1 ? -45 : -90;
-    else if (detectedFilter === 'highpass') phaseC = detectedOrder === 1 ? 45 : 90;
+    if (detectedFilter === 'lowpass') phaseC = detectedOrder === 1 ? -45 : (detectedOrder === 2 ? -52.55 : -90);
+    else if (detectedFilter === 'highpass') phaseC = detectedOrder === 1 ? 45 : (detectedOrder === 2 ? 52.55 : 90);
     else if (detectedFilter === 'bandpass') phaseC = 0;
   }
 
@@ -324,6 +313,41 @@ export function analyzeCutoffAndInterpolation(
     phaseC: phaseC,
     maxGvDb: maxGvDb,
     closestToCutoffId,
-    closestToCutoffFreq
+    closestToCutoffFreq,
+    detectedFilter,
+    detectedOrder
   };
 }
+
+export function calculateTheoreticalPhase(f: number, fc: number, type: string, order: number, isPassive: boolean = false): number {
+  const fRatio = f / fc;
+  if (type === 'lowpass') {
+    if (order === 1) {
+      return -Math.atan(fRatio) * (180 / Math.PI);
+    } else if (order === 2 && isPassive) {
+      // Passive 2nd order LPF with loading effect
+      // fc = 0.37424 * f0 => f0 = fc / 0.37424 => f/f0 = 0.37424 * (f/fc)
+      const x = 0.37424 * fRatio;
+      return -Math.atan2(3 * x, 1 - x * x) * (180 / Math.PI);
+    } else {
+      // 2nd order Butterworth LPF (Active)
+      return -Math.atan2(1.414 * fRatio, 1 - fRatio * fRatio) * (180 / Math.PI);
+    }
+  } else if (type === 'highpass') {
+    if (order === 1) {
+      return 90 - Math.atan(fRatio) * (180 / Math.PI);
+    } else if (order === 2 && isPassive) {
+      // Passive 2nd order HPF with loading effect
+      // fc = 2.67209 * f0 => f0 = fc / 2.67209 => f/f0 = 2.67209 * (f/fc)
+      const x = 2.67209 * fRatio;
+      return 180 - Math.atan2(3 * x, 1 - x * x) * (180 / Math.PI);
+    } else {
+      // 2nd order Butterworth HPF (Active)
+      return 180 - Math.atan2(1.414 * fRatio, 1 - fRatio * fRatio) * (180 / Math.PI);
+    }
+  } else if (type === 'bandpass') {
+    return Math.atan(1 / fRatio - fRatio) * (180 / Math.PI);
+  }
+  return 0;
+}
+
