@@ -1,0 +1,60 @@
+name: Deploy to GitHub Pages
+
+on:
+  # Dispara o workflow sempre que houver um push na branch master
+  push:
+    branches: [ master ]
+  # Permite rodar o workflow manualmente pela aba Actions do GitHub
+  workflow_dispatch:
+
+# Define as permissões necessárias do token GITHUB_TOKEN para publicar no Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Permite apenas um deploy concorrente por vez, pulando fila se necessário
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Instalar dependências
+        run: pnpm install
+
+      - name: Executar suíte de testes (Vitest)
+        run: pnpm run test
+
+      - name: Instalar, compilar e preparar os estáticos com Astro
+        uses: withastro/action@v3
+        with:
+          node-version: 22
+          package-manager: pnpm@latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
