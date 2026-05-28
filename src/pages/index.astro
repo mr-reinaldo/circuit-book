@@ -1,11 +1,11 @@
 ---
-import Welcome from '../components/Welcome.astro';
+import CircuitApp from '../components/vue/CircuitApp.vue';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="ACE - Analisador de Circuitos Eletrônicos | IFPB">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8" id="analyzer">
+    <!-- Vue 3 Interactive App (Islands Architecture) -->
+    <CircuitApp client:load />
+  </main>
 </Layout>

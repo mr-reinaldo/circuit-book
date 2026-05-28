@@ -1,0 +1,80 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Sobre | ACE - Analisador de Circuitos Eletrônicos">
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 min-h-[calc(100vh-200px)]">
+    <div class="bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-xl p-8 sm:p-12 transition-colors duration-300">
+      
+      <!-- Cabeçalho -->
+      <div class="flex flex-col items-center text-center mb-10 border-b border-slate-200 dark:border-slate-800 pb-8">
+        <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-indigo-600 font-mono text-3xl font-black text-white shadow-md mb-4">
+          CB
+        </div>
+        <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
+          ACE - Analisador de Circuitos Eletrônicos
+        </h1>
+        <p class="text-lg text-slate-600 dark:text-slate-400">
+          Ferramenta avançada para plotagem de diagramas de Bode e análise experimental de filtros.
+        </p>
+      </div>
+
+      <!-- Conteúdo Principal -->
+      <div class="space-y-8 text-slate-700 dark:text-slate-300 leading-relaxed">
+        
+        <section>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+            <span class="material-symbols-outlined text-indigo-500">school</span>
+            Por que criamos o ACE?
+          </h2>
+          <p>
+            O <strong>Circuit Book (ACE)</strong> nasceu para facilitar a vida da galera do <em>Curso Superior de Tecnologia em Sistemas de Telecomunicações</em> do Instituto Federal da Paraíba (IFPB). 
+          </p>
+          <p class="mt-2">
+            A ideia é bem simples: chega de usar planilhas gigantescas ou programas confusos cheios de botões que você não precisa. Construímos um ambiente prático e direto ao ponto para você sentar na bancada do laboratório, ir anotando os dados que saem do osciloscópio e ver os seus diagramas de Bode ganharem vida na mesma hora.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+            <span class="material-symbols-outlined text-indigo-500">architecture</span>
+            O que ele faz de legal?
+          </h2>
+          <ul class="list-disc list-inside space-y-2 ml-2">
+            <li><strong>Gerador de Décadas:</strong> Esqueça ter que digitar as frequências na mão (10, 20, 50, 100...). Um clique e ele preenche a tabela inteira para você!</li>
+            <li><strong>Gráficos com Cara de Laboratório:</strong> Tivemos um baita cuidado para que o visual do gráfico lembrasse muito aquele autêntico e nostálgico "papel mono-log" (semi-logarítmico) das aulas práticas.</li>
+            <li><strong>Mágica na Fase:</strong> Se você não pôde medir a fase de todos os pontos na bancada, não tem problema. O sistema tenta adivinhar o tipo do seu filtro e já desenha a curva teórica por trás dos panos!</li>
+            <li><strong>Calibração Rápida:</strong> Mediu tudo com a ponta de prova do osciloscópio invertida (x10)? Em vez de digitar os valores tudo de novo, é só usar a calibração que a tabela inteira se ajeita.</li>
+            <li><strong>Pronto para os Relatórios:</strong> Você pode exportar seus dados pro Excel (`.csv`) e salvar seus gráficos bonitões como `.png` para colar direto no seu relatório de Física ou Eletrônica.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+            <span class="material-symbols-outlined text-indigo-500">code</span>
+            Como foi construído?
+          </h2>
+          <p class="mb-3">
+            O projeto é super leve e feito para rodar liso direto no seu navegador. Usamos o que há de mais moderno no mercado de desenvolvimento hoje:
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold">Astro.build</span>
+            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold">Vue 3 (Composition API)</span>
+            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold">D3.js (Data-Driven Documents)</span>
+            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold">Tailwind CSS</span>
+            <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-sm font-semibold">TypeScript</span>
+          </div>
+        </section>
+
+      </div>
+
+      <div class="mt-12 flex justify-center">
+        <a href="/circuit-book/" class="inline-flex items-center gap-2 text-white bg-indigo-600 hover:bg-indigo-700 font-bold px-6 py-3 rounded-lg shadow-sm transition-all focus:ring-4 focus:ring-indigo-500/50">
+          <span class="material-symbols-outlined">arrow_back</span>
+          Voltar para o Analisador
+        </a>
+      </div>
+
+    </div>
+  </main>
+</Layout>

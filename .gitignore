@@ -22,3 +22,10 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Editor and IDE directories
+.vscode/
+.gemini/
+
+# Generated and exported files
+*.csv
