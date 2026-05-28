@@ -209,7 +209,6 @@ const exportToCsv = () => {
       </div>
 
       <OpampChartsPanel 
-        v-if="experimentalData.length > 0"
         :processed-data="(analysisResult.processedPoints as any)"
         :cutoff-frequency="analysisResult.cutoffFreq"
       />
