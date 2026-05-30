@@ -26,16 +26,18 @@ let resizeObserver: ResizeObserver | null = null;
 // --- Theme ---
 function getThemeColors() {
   const isDark = document.documentElement.classList.contains('dark');
+  const style = getComputedStyle(document.documentElement);
+  const get = (v: string) => style.getPropertyValue(v).trim();
   return {
-    text: isDark ? '#94a3b8' : '#334155', 
-    title: isDark ? '#e2e8f0' : '#0f172a',
+    text: get('--text-secondary') || (isDark ? '#94a3b8' : '#334155'), 
+    title: get('--text-primary') || (isDark ? '#e2e8f0' : '#0f172a'),
     grid: isDark ? 'rgba(51, 65, 85, 0.2)' : 'rgba(148, 163, 184, 0.4)',
     tooltipBg: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    tooltipTitle: isDark ? '#f8fafc' : '#0f172a',
-    tooltipBody: isDark ? '#cbd5e1' : '#334155',
+    tooltipTitle: get('--text-primary') || (isDark ? '#f8fafc' : '#0f172a'),
+    tooltipBody: get('--text-secondary') || (isDark ? '#cbd5e1' : '#334155'),
     crosshair: isDark ? 'rgba(148, 163, 184, 0.4)' : 'rgba(51, 65, 85, 0.6)', 
     lineBorder: isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)',
-    bg: isDark ? '#020617' : '#f8fafc' // for export PNG
+    bg: get('--surface-inset') || (isDark ? '#020617' : '#f8fafc')
   };
 }
 
@@ -185,7 +187,7 @@ function drawChart(
     
   // Cutoff Line (fc)
   if (showCutoffLine.value && props.cutoffFrequency) {
-    if (props.cutoffFrequency >= xScale.domain()[0] && props.cutoffFrequency <= xScale.domain()[1]) {
+    if (props.cutoffFrequency > 0) {
       const xPixel = xScale(props.cutoffFrequency);
       
       g.append('line')
@@ -850,27 +852,24 @@ function exportChart() {
 </script>
 
 <template>
-  <div class="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm h-full flex flex-col transition-colors duration-300">
+  <div class="cb-card p-5 h-full flex flex-col">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
       <div>
-        <h2 class="text-lg font-bold tracking-tight text-slate-800 dark:text-white flex items-center gap-2">
-          <span class="inline-block h-3 w-3 rounded bg-indigo-500"></span>
-          Painel D3.js (Resposta de Frequência)
-        </h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <div class="cb-card-header">
+          <span class="accent-dot"></span>
+          <h2>Painel D3.js (Resposta de Frequência)</h2>
+        </div>
+        <p class="cb-subtitle" style="margin-left:18px">
           Visualização avançada e responsiva renderizada vetor a vetor com o poder do D3.
         </p>
       </div>
       
       <!-- Tab Controls -->
-      <div class="flex border-b border-slate-200 dark:border-slate-800 font-mono text-[10px] uppercase font-bold tracking-wider w-full sm:w-auto transition-colors duration-300 overflow-x-auto">
+      <div class="flex font-mono text-[10px] uppercase font-bold tracking-wider w-full sm:w-auto overflow-x-auto" style="border-bottom:1px solid var(--border-default)">
         <button 
           @click="activeTab = 'bode-mag'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-mag' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-mag' ? 'cb-tab-active' : '']"
         >
           <span class="material-symbols-outlined text-[14px]">linear_scale</span>
           Mag (Linear)
@@ -878,10 +877,7 @@ function exportChart() {
         <button 
           @click="activeTab = 'bode-db'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-db' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-db' ? 'cb-tab-active' : '']"
         >
           <span class="material-symbols-outlined text-[14px]">graphic_eq</span>
           Ganho (dB)
@@ -889,10 +885,7 @@ function exportChart() {
         <button 
           @click="activeTab = 'bode-phase'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-phase' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-phase' ? 'cb-tab-active' : '']"
         >
           <span class="material-symbols-outlined text-[14px]">waves</span>
           Fase
@@ -900,10 +893,7 @@ function exportChart() {
         <button 
           @click="activeTab = 'nyquist'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'nyquist' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'nyquist' ? 'cb-tab-active' : '']"
         >
           <span class="material-symbols-outlined text-[14px]">scatter_plot</span>
           Nyquist
@@ -911,10 +901,7 @@ function exportChart() {
         <button 
           @click="activeTab = 'nichols'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'nichols' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'nichols' ? 'cb-tab-active' : '']"
         >
           <span class="material-symbols-outlined text-[14px]">show_chart</span>
           Nichols
@@ -923,7 +910,7 @@ function exportChart() {
     </div>
 
     <!-- Chart Container Area -->
-    <div class="flex-1 min-h-[350px] md:min-h-[400px] relative bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-4 mb-4 transition-colors duration-300 overflow-hidden">
+    <div class="cb-inset flex-1 min-h-[350px] md:min-h-[400px] relative p-4 mb-4 overflow-hidden">
       
       <!-- Mag Linear Chart Tab -->
       <div v-show="activeTab === 'bode-mag'" class="w-full h-full absolute inset-0 p-4" ref="containerBodeMag"></div>
@@ -943,34 +930,34 @@ function exportChart() {
 
     <!-- Chart Actions -->
     <div class="flex flex-col sm:flex-row justify-end items-center gap-3">
-      <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 font-mono font-bold mr-auto">
+      <div class="flex items-center gap-4 text-xs font-mono font-bold mr-auto" style="color:var(--text-tertiary)">
         <!-- Scale Selector only for Bode Plots -->
         <div v-if="activeTab.startsWith('bode')" class="flex items-center gap-2">
           <span>Escala Freq (X):</span>
           <button 
             @click="toggleScale"
             type="button" 
-            class="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded transition-colors cursor-pointer w-24 text-center"
+            class="cb-btn-outline px-3 py-1.5 w-24 text-center"
           >
             {{ frequencyScale === 'logarithmic' ? 'Logarítmico' : 'Linear' }}
           </button>
         </div>
         
         <!-- Helpful Information for Nyquist -->
-        <div v-else-if="activeTab === 'nyquist'" class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 px-2.5 py-1 rounded">
+        <div v-else-if="activeTab === 'nyquist'" class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="color:var(--primary-text);background:var(--primary-surface);border:1px solid var(--primary-border)">
           <span class="material-symbols-outlined text-[15px]">info</span>
           <span class="font-sans text-[10px] uppercase font-bold tracking-wider">Eixos Lineares (Plano Complexo Re vs Im)</span>
         </div>
         
         <!-- Helpful Information for Nichols -->
-        <div v-else-if="activeTab === 'nichols'" class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 px-2.5 py-1 rounded">
+        <div v-else-if="activeTab === 'nichols'" class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="color:var(--primary-text);background:var(--primary-surface);border:1px solid var(--primary-border)">
           <span class="material-symbols-outlined text-[15px]">info</span>
           <span class="font-sans text-[10px] uppercase font-bold tracking-wider">Eixos Lineares (Ganho dB vs Fase Grau)</span>
         </div>
 
-        <div :class="[activeTab.startsWith('bode') ? 'border-l border-slate-300 dark:border-slate-700 pl-4' : '', 'flex items-center gap-2']">
+        <div :class="[activeTab.startsWith('bode') ? 'pl-4' : '', 'flex items-center gap-2']" :style="activeTab.startsWith('bode') ? 'border-left:1px solid var(--border-default)' : ''">
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" v-model="showDataPoints" class="accent-indigo-500 cursor-pointer w-3.5 h-3.5">
+            <input type="checkbox" v-model="showDataPoints" class="cursor-pointer w-3.5 h-3.5" style="accent-color:var(--primary)">
             Pontos
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer ml-3">
@@ -983,7 +970,7 @@ function exportChart() {
       <button 
         @click="exportChart"
         type="button" 
-        class="w-full sm:w-auto text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 px-4 py-2.5 rounded shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+        class="cb-btn-outline w-full sm:w-auto flex items-center justify-center gap-1.5"
       >
         <span class="material-symbols-outlined text-[16px]">photo_camera</span> Exportar SVG (PNG)
       </button>

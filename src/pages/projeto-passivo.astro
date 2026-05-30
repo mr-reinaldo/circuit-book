@@ -1,0 +1,10 @@
+---
+import PassiveProjectApp from '../components/vue/passive/PassiveProjectApp.vue';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Projeto (Passivos) | Circuit Book">
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8" id="passive-project">
+    <PassiveProjectApp client:load />
+  </main>
+</Layout>

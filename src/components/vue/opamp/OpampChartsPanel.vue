@@ -7,6 +7,7 @@ import type { OpampDataPoint } from '../../../utils/mathUtilsOpamp';
 const props = defineProps<{
   processedData: OpampDataPoint[];
   cutoffFrequency?: number | null;
+  stepResponseData?: Array<{t: number, vOut: number}>;
 }>();
 
 const activeTab = ref('bode-mag');
@@ -20,22 +21,24 @@ const containerBodeDb = ref<HTMLDivElement | null>(null);
 const containerBodePhase = ref<HTMLDivElement | null>(null);
 const containerNyquist = ref<HTMLDivElement | null>(null);
 const containerNichols = ref<HTMLDivElement | null>(null);
+const containerStepResponse = ref<HTMLDivElement | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
 
 // --- Theme ---
 function getThemeColors() {
   const isDark = document.documentElement.classList.contains('dark');
+  const style = getComputedStyle(document.documentElement);
   return {
-    text: isDark ? '#94a3b8' : '#334155', 
-    title: isDark ? '#e2e8f0' : '#0f172a',
-    grid: isDark ? 'rgba(51, 65, 85, 0.2)' : 'rgba(148, 163, 184, 0.4)',
-    tooltipBg: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-    tooltipTitle: isDark ? '#f8fafc' : '#0f172a',
-    tooltipBody: isDark ? '#cbd5e1' : '#334155',
-    crosshair: isDark ? 'rgba(148, 163, 184, 0.4)' : 'rgba(51, 65, 85, 0.6)', 
-    lineBorder: isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.8)',
-    bg: isDark ? '#020617' : '#f8fafc' // for export PNG
+    text: style.getPropertyValue('--text-secondary').trim() || (isDark ? '#9898ad' : '#525266'), 
+    title: style.getPropertyValue('--text-primary').trim() || (isDark ? '#e8e8f0' : '#1a1a2e'),
+    grid: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
+    tooltipBg: isDark ? 'rgba(26, 26, 38, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+    tooltipTitle: style.getPropertyValue('--text-primary').trim() || (isDark ? '#e8e8f0' : '#1a1a2e'),
+    tooltipBody: style.getPropertyValue('--text-secondary').trim() || (isDark ? '#9898ad' : '#525266'),
+    crosshair: isDark ? 'rgba(152, 152, 173, 0.4)' : 'rgba(82, 82, 102, 0.6)', 
+    lineBorder: isDark ? 'rgba(255, 255, 255, 0.9)' : 'rgba(26, 26, 46, 0.8)',
+    bg: isDark ? '#111118' : '#f5f5f8'
   };
 }
 
@@ -185,7 +188,7 @@ function drawChart(
     
   // Cutoff Line (fc)
   if (showCutoffLine.value && props.cutoffFrequency) {
-    if (props.cutoffFrequency >= xScale.domain()[0] && props.cutoffFrequency <= xScale.domain()[1]) {
+    if (props.cutoffFrequency > 0) {
       const xPixel = xScale(props.cutoffFrequency);
       
       g.append('line')
@@ -755,7 +758,190 @@ function updateCharts() {
     drawNyquist(containerNyquist.value, data);
   } else if (activeTab.value === 'nichols' && containerNichols.value) {
     drawNichols(containerNichols.value, data);
+  } else if (activeTab.value === 'step-response' && containerStepResponse.value && props.stepResponseData) {
+    drawStepResponse(containerStepResponse.value, props.stepResponseData);
   }
+}
+
+function drawStepResponse(container: HTMLDivElement | null, data: Array<{t: number, vOut: number}>) {
+  if (!container || data.length === 0) return;
+  
+  d3.select(container).selectAll('*').remove();
+  
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const margin = { top: 30, right: 30, bottom: 60, left: 60 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  
+  const colors = getThemeColors();
+  
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .style('font-family', 'Roboto, sans-serif');
+    
+  const g = svg.append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+    
+  const xMax = d3.max(data, d => d.t) as number;
+  const xScale = d3.scaleLinear().domain([0, xMax]).range([0, innerWidth]);
+  
+  const yMin = d3.min(data, d => d.vOut) as number;
+  const yMax = d3.max(data, d => d.vOut) as number;
+  
+  const yPadding = Math.max((yMax - yMin) * 0.1, 0.1);
+  const yScale = d3.scaleLinear()
+    .domain([Math.min(yMin - yPadding, 0), yMax + yPadding])
+    .range([innerHeight, 0]);
+    
+  const xAxis = d3.axisBottom(xScale).tickFormat((d: any) => `${(d * 1000).toFixed(1)} ms`);
+  const yAxis = d3.axisLeft(yScale);
+  
+  g.append('g')
+    .attr('class', 'grid')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(() => ''))
+    .selectAll('line').style('stroke', colors.grid).style('stroke-dasharray', '4,4');
+
+  g.append('g')
+    .attr('class', 'grid')
+    .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(() => ''))
+    .selectAll('line').style('stroke', colors.grid).style('stroke-dasharray', '4,4');
+    
+  g.selectAll('.grid .domain').style('display', 'none');
+
+  g.append('g')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(xAxis)
+    .selectAll('text')
+    .style('fill', colors.text)
+    .style('font-size', '10px')
+    .attr('transform', 'rotate(-45)')
+    .style('text-anchor', 'end')
+    .attr('dx', '-0.5em')
+    .attr('dy', '0.5em');
+    
+  g.append('g')
+    .call(yAxis)
+    .selectAll('text')
+    .style('fill', colors.text);
+    
+  g.selectAll('.domain').style('stroke', colors.text);
+  g.selectAll('.tick line').style('stroke', colors.text);
+  
+  svg.append('text')
+    .attr('x', width / 2)
+    .attr('y', height - 5)
+    .style('text-anchor', 'middle')
+    .style('fill', colors.title)
+    .style('font-size', '12px')
+    .style('font-weight', 'bold')
+    .text('Tempo (t)');
+    
+  svg.append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -height / 2)
+    .attr('y', 15)
+    .style('text-anchor', 'middle')
+    .style('fill', '#ec4899')
+    .style('font-size', '12px')
+    .style('font-weight', 'bold')
+    .text('Resposta (V)');
+    
+  const line = d3.line<{t: number, vOut: number}>()
+    .x(d => xScale(d.t))
+    .y(d => yScale(d.vOut));
+    
+  g.append('path')
+    .datum(data)
+    .attr('fill', 'none')
+    .attr('stroke', '#ec4899')
+    .attr('stroke-width', 2.5)
+    .attr('d', line);
+    
+  // Draw Data Points
+  if (showDataPoints.value) {
+    g.selectAll('.dot')
+      .data(data)
+      .enter()
+      .append('circle')
+      .attr('class', 'dot')
+      .attr('cx', d => xScale(d.t))
+      .attr('cy', d => yScale(d.vOut))
+      .attr('r', 3)
+      .style('fill', '#ec4899')
+      .style('stroke', colors.lineBorder)
+      .style('stroke-width', 1);
+  }
+  
+  // Interactive Crosshair & Tooltip
+  const tooltipGroup = g.append('g').style('display', 'none');
+  
+  tooltipGroup.append('line')
+    .attr('class', 'crosshair-x')
+    .attr('y1', 0)
+    .attr('y2', innerHeight)
+    .style('stroke', colors.crosshair)
+    .style('stroke-dasharray', '4,4')
+    .style('pointer-events', 'none');
+    
+  const tooltipRect = d3.select('body').append('div')
+    .attr('class', 'd3-tooltip')
+    .style('position', 'absolute')
+    .style('display', 'none')
+    .style('background', colors.tooltipBg)
+    .style('border', `1px solid ${colors.lineBorder}`)
+    .style('border-radius', '4px')
+    .style('padding', '8px')
+    .style('color', colors.tooltipBody)
+    .style('font-size', '12px')
+    .style('pointer-events', 'none')
+    .style('z-index', '9999')
+    .style('box-shadow', '0 4px 6px -1px rgba(0, 0, 0, 0.1)');
+    
+  const bisectTime = d3.bisector((d: {t: number, vOut: number}) => d.t).left;
+  
+  g.append('rect')
+    .attr('width', innerWidth)
+    .attr('height', innerHeight)
+    .style('fill', 'transparent')
+    .style('pointer-events', 'all')
+    .on('mouseover', () => {
+      tooltipGroup.style('display', null);
+      tooltipRect.style('display', 'block');
+    })
+    .on('mouseout', () => {
+      tooltipGroup.style('display', 'none');
+      tooltipRect.style('display', 'none');
+    })
+    .on('mousemove', (event) => {
+      const x0 = xScale.invert(d3.pointer(event)[0]);
+      let i = bisectTime(data, x0, 1);
+      if (i >= data.length) i = data.length - 1;
+      const d0 = data[i - 1];
+      const d1 = data[i];
+      const d = (d1 && d0) ? (x0 - d0.t > d1.t - x0 ? d1 : d0) : (d0 || d1);
+      
+      if (!d) return;
+
+      const xPixel = xScale(d.t);
+      
+      tooltipGroup.select('.crosshair-x')
+        .attr('x1', xPixel)
+        .attr('x2', xPixel);
+        
+      const timeText = `${(d.t * 1000).toFixed(2)} ms`;
+      
+      tooltipRect.html(`
+        <strong style="color:${colors.title}">Tempo:</strong> ${timeText}<br>
+        <strong style="color:#ec4899">Resposta (V):</strong> ${(d.vOut).toFixed(3)}
+      `)
+      .style('left', (event.pageX + 15) + 'px')
+      .style('top', (event.pageY - 28) + 'px');
+    });
 }
 
 const handleThemeChange = () => {
@@ -774,6 +960,7 @@ onMounted(() => {
   if (containerBodePhase.value) resizeObserver.observe(containerBodePhase.value);
   if (containerNyquist.value) resizeObserver.observe(containerNyquist.value);
   if (containerNichols.value) resizeObserver.observe(containerNichols.value);
+  if (containerStepResponse.value) resizeObserver.observe(containerStepResponse.value);
   
   // Initial draw
   setTimeout(updateCharts, 100);
@@ -786,6 +973,10 @@ onUnmounted(() => {
 });
 
 watch(() => props.processedData, () => {
+  updateCharts();
+}, { deep: true });
+
+watch(() => props.stepResponseData, () => {
   updateCharts();
 }, { deep: true });
 
@@ -804,6 +995,7 @@ function exportChart() {
   else if (activeTab.value === 'bode-phase') activeContainer = containerBodePhase.value;
   else if (activeTab.value === 'nyquist') activeContainer = containerNyquist.value;
   else if (activeTab.value === 'nichols') activeContainer = containerNichols.value;
+  else if (activeTab.value === 'step-response') activeContainer = containerStepResponse.value;
 
   if (activeContainer) {
     const svgElement = activeContainer.querySelector('svg');
@@ -850,80 +1042,74 @@ function exportChart() {
 </script>
 
 <template>
-  <div class="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm h-full flex flex-col transition-colors duration-300">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+  <div class="cb-card p-5 h-full flex flex-col">
+    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4">
       <div>
-        <h2 class="text-lg font-bold tracking-tight text-slate-800 dark:text-white flex items-center gap-2">
-          <span class="inline-block h-3 w-3 rounded bg-indigo-500"></span>
-          Painel D3.js (Resposta de Frequência) - Filtros Ativos
-        </h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <div class="cb-card-header" style="margin-bottom:4px">
+          <span class="accent-dot"></span>
+          <h2>Painel D3.js — Resposta de Frequência</h2>
+        </div>
+        <p class="cb-subtitle" style="margin-left:18px">
           Visualização avançada e responsiva renderizada vetor a vetor com o poder do D3 para filtros de AmpOp.
         </p>
       </div>
       
       <!-- Tab Controls -->
-      <div class="flex border-b border-slate-200 dark:border-slate-800 font-mono text-[10px] uppercase font-bold tracking-wider w-full sm:w-auto transition-colors duration-300 overflow-x-auto">
+      <div class="flex flex-wrap" style="border-bottom:1px solid var(--border-subtle)" >
         <button 
           @click="activeTab = 'bode-mag'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-mag' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-mag' ? 'cb-tab-active' : '']"
         >
-          <span class="material-symbols-outlined text-[14px]">linear_scale</span>
+          <span class="material-symbols-outlined text-[15px]">linear_scale</span>
           Mag (Linear)
         </button>
         <button 
           @click="activeTab = 'bode-db'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-db' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-db' ? 'cb-tab-active' : '']"
         >
-          <span class="material-symbols-outlined text-[14px]">graphic_eq</span>
+          <span class="material-symbols-outlined text-[15px]">graphic_eq</span>
           Ganho (dB)
         </button>
         <button 
           @click="activeTab = 'bode-phase'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'bode-phase' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'bode-phase' ? 'cb-tab-active' : '']"
         >
-          <span class="material-symbols-outlined text-[14px]">waves</span>
+          <span class="material-symbols-outlined text-[15px]">waves</span>
           Fase
         </button>
         <button 
           @click="activeTab = 'nyquist'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'nyquist' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'nyquist' ? 'cb-tab-active' : '']"
         >
-          <span class="material-symbols-outlined text-[14px]">scatter_plot</span>
+          <span class="material-symbols-outlined text-[15px]">scatter_plot</span>
           Nyquist
         </button>
         <button 
           @click="activeTab = 'nichols'"
           type="button" 
-          :class="[
-            'flex-1 sm:flex-initial px-3 py-2 transition-all cursor-pointer flex items-center justify-center gap-1 border-b-2 whitespace-nowrap',
-            activeTab === 'nichols' ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500' : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700'
-          ]"
+          :class="['cb-tab', activeTab === 'nichols' ? 'cb-tab-active' : '']"
         >
-          <span class="material-symbols-outlined text-[14px]">show_chart</span>
+          <span class="material-symbols-outlined text-[15px]">show_chart</span>
           Nichols
+        </button>
+        <button 
+          v-if="stepResponseData"
+          @click="activeTab = 'step-response'"
+          type="button" 
+          :class="['cb-tab', activeTab === 'step-response' ? 'cb-tab-active' : '']"
+        >
+          <span class="material-symbols-outlined text-[15px]">ssid_chart</span>
+          Resp. Degrau
         </button>
       </div>
     </div>
 
     <!-- Chart Container Area -->
-    <div class="flex-1 min-h-[350px] md:min-h-[400px] relative bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md p-4 mb-4 transition-colors duration-300 overflow-hidden">
+    <div class="cb-inset flex-1 min-h-[350px] md:min-h-[400px] relative p-4 mb-4 overflow-hidden">
       
       <!-- Mag Linear Chart Tab -->
       <div v-show="activeTab === 'bode-mag'" class="w-full h-full absolute inset-0 p-4" ref="containerBodeMag"></div>
@@ -939,38 +1125,41 @@ function exportChart() {
 
       <!-- Nichols Chart Tab -->
       <div v-show="activeTab === 'nichols'" class="w-full h-full absolute inset-0 p-4" ref="containerNichols"></div>
+
+      <!-- Step Response Chart Tab -->
+      <div v-show="activeTab === 'step-response'" class="w-full h-full absolute inset-0 p-4" ref="containerStepResponse"></div>
     </div>
 
     <!-- Chart Actions -->
     <div class="flex flex-col sm:flex-row justify-end items-center gap-3">
-      <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 font-mono font-bold mr-auto">
+      <div class="flex items-center gap-4 text-xs font-mono font-bold mr-auto" style="color:var(--text-secondary)">
         <!-- Scale Selector only for Bode Plots -->
         <div v-if="activeTab.startsWith('bode')" class="flex items-center gap-2">
           <span>Escala Freq (X):</span>
           <button 
             @click="toggleScale"
             type="button" 
-            class="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded transition-colors cursor-pointer w-24 text-center"
+            class="cb-btn-outline" style="font-size:11px;padding:5px 12px;font-family:'JetBrains Mono',monospace"
           >
             {{ frequencyScale === 'logarithmic' ? 'Logarítmico' : 'Linear' }}
           </button>
         </div>
         
         <!-- Helpful Information for Nyquist -->
-        <div v-else-if="activeTab === 'nyquist'" class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 px-2.5 py-1 rounded">
+        <div v-else-if="activeTab === 'nyquist'" class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="color:var(--primary-text);background:var(--primary-surface);border:1px solid var(--primary-border)">
           <span class="material-symbols-outlined text-[15px]">info</span>
           <span class="font-sans text-[10px] uppercase font-bold tracking-wider">Eixos Lineares (Plano Complexo Re vs Im)</span>
         </div>
         
         <!-- Helpful Information for Nichols -->
-        <div v-else-if="activeTab === 'nichols'" class="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 px-2.5 py-1 rounded">
+        <div v-else-if="activeTab === 'nichols'" class="flex items-center gap-1.5 px-2.5 py-1 rounded" style="color:var(--primary-text);background:var(--primary-surface);border:1px solid var(--primary-border)">
           <span class="material-symbols-outlined text-[15px]">info</span>
           <span class="font-sans text-[10px] uppercase font-bold tracking-wider">Eixos Lineares (Ganho dB vs Fase Grau)</span>
         </div>
 
-        <div :class="[activeTab.startsWith('bode') ? 'border-l border-slate-300 dark:border-slate-700 pl-4' : '', 'flex items-center gap-2']">
+        <div :class="[activeTab.startsWith('bode') ? 'border-l pl-4' : '', 'flex items-center gap-2']" :style="activeTab.startsWith('bode') ? 'border-color:var(--border-default)' : ''">
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" v-model="showDataPoints" class="accent-indigo-500 cursor-pointer w-3.5 h-3.5">
+            <input type="checkbox" v-model="showDataPoints" class="cursor-pointer w-3.5 h-3.5" style="accent-color:var(--primary)">
             Pontos
           </label>
           <label class="flex items-center gap-1.5 cursor-pointer ml-3">
@@ -983,9 +1172,9 @@ function exportChart() {
       <button 
         @click="exportChart"
         type="button" 
-        class="w-full sm:w-auto text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 px-4 py-2.5 rounded shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+        class="cb-btn-outline w-full sm:w-auto"
       >
-        <span class="material-symbols-outlined text-[16px]">photo_camera</span> Exportar SVG (PNG)
+        <span class="material-symbols-outlined text-[15px]">photo_camera</span> Exportar SVG (PNG)
       </button>
     </div>
   </div>

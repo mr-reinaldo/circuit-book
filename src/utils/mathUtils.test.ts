@@ -566,4 +566,17 @@ describe('mathUtils', () => {
 
   });
 
+  describe('escala amplitude vrms', () => {
+    it('scales gains correctly when amplitudeMode is vrms', () => {
+      const data: ExperimentalData[] = [
+        { id: 1, freq: 100, vo: 5.0, phase: 0 }, // Vo = 5.0 Vpp. VoRms = 5.0 / (2 * sqrt(2)) = 1.7678 V
+        { id: 2, freq: 1000, vo: 5.0, phase: 0 }
+      ];
+      // VsRms = 2.0 V
+      // Gain = VoRms / VsRms = 1.7678 / 2.0 = 0.8839
+      const result = analyzeCutoffAndInterpolation(data, 2.0, 'V', 'V', 'vrms');
+      expect(result?.processedPoints[0].gvLinear).toBeCloseTo(5.0 / (2 * Math.sqrt(2)) / 2.0, 4);
+    });
+  });
+
 });

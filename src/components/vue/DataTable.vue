@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { type ExperimentalData, parseEngineeringValue, formatForInput } from '../../utils/mathUtils';
-import PassiveSourceVoltageInput from './sub/PassiveSourceVoltageInput.vue';
-import PassiveCalibrationControl from './sub/PassiveCalibrationControl.vue';
-import PassiveDecadeGenerator from './sub/PassiveDecadeGenerator.vue';
+import CalibrationControl from './sub/CalibrationControl.vue';
+import DecadeGenerator from './sub/DecadeGenerator.vue';
+import SignalGeneratorInput from './sub/SignalGeneratorInput.vue';
 
 const props = defineProps<{
   experimentalData: ExperimentalData[];
@@ -11,6 +11,7 @@ const props = defineProps<{
   globalVs: number;
   globalVsUnit?: string;
   globalVoUnit?: string;
+  amplitudeMode: 'vpp' | 'vrms';
   maxGvDb: number;
   closestToCutoffId?: number | null;
 }>();
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   (e: 'updateVs', value: number): void;
   (e: 'updateVsUnit', value: string): void;
   (e: 'updateVoUnit', value: string): void;
+  (e: 'updateAmplitudeMode', mode: 'vpp' | 'vrms'): void;
   (e: 'applyCalibration', factor: number): void;
   (e: 'generateDecades', start: number, end: number, pointsPerDecade: number): void;
   (e: 'exportCsv'): void;
@@ -97,32 +99,36 @@ function getProcessedRow(id: number) {
 </script>
 
 <template>
-  <div class="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm transition-colors duration-300">
+  <div class="cb-card p-5">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
       <div>
-        <h2 class="text-lg font-bold tracking-tight text-slate-800 dark:text-white flex items-center gap-2">
-          <span class="inline-block h-3 w-3 rounded bg-emerald-500"></span>
+        <h2 class="text-lg font-bold tracking-tight flex items-center gap-2" style="color:var(--text-primary)">
+          <span class="inline-block h-3 w-3 rounded" style="background:var(--primary)"></span>
           Dados do Experimento Prático (Laboratório)
         </h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+        <p class="text-xs mt-1" style="color:var(--text-secondary)">
           Insira os dados lidos do gerador de sinais e osciloscópio. Deixe o campo Fase em branco próximo ao corte para testar a interpolação inteligente.
         </p>
       </div>
 
       <!-- Settings Panel removido a pedido do usuário -->
 
-      <PassiveSourceVoltageInput 
-        :value="globalVs" 
-        :unit="globalVsUnit || 'V'" 
-        label="Vs (Fonte)"
+      <SignalGeneratorInput 
+        :value="globalVs"
+        :unit="globalVsUnit || 'V'"
+        label="Vin"
+        :amplitude-mode="amplitudeMode"
+        storage-key="bench-generator-passive"
         @update:value="(val) => emit('updateVs', val)"
         @update:unit="(unit) => emit('updateVsUnit', unit)"
+        @update:amplitude-mode="(mode) => emit('updateAmplitudeMode', mode)"
       />
       <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
         <button 
           @click="emit('clearTable')"
+          v-if="experimentalData.length > 0"
           type="button" 
-          class="flex-1 sm:flex-initial text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 px-3 py-1.5 rounded transition-all font-sans"
+          class="flex-1 sm:flex-initial text-[11px] font-semibold px-3 py-1.5 rounded transition-all font-sans cursor-pointer" style="color:var(--error-text);background:var(--error-surface);border:1px solid rgba(239,68,68,0.2)"
         >
           Limpar Tudo
         </button>
@@ -130,24 +136,29 @@ function getProcessedRow(id: number) {
     </div>
 
     <!-- Responsive Table -->
-    <div class="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-slate-950 transition-colors duration-300">
+    <div class="overflow-x-auto rounded-md transition-colors duration-300" style="background:var(--surface-card);border:1px solid var(--border-default)">
       <table class="w-full text-left border-collapse text-xs">
         <thead>
-          <tr class="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-mono text-[10px] tracking-wider uppercase transition-colors duration-300">
-            <th class="py-3 px-4">Frequência (Hz)</th>
+          <tr class="font-mono text-[10px] tracking-wider uppercase transition-colors duration-300" style="background:var(--surface-inset);border-bottom:1px solid var(--border-default);color:var(--text-secondary)">
+            <th class="py-3 px-4">Freq (Hz)</th>
             <th id="th-vo-label" class="py-3 px-4 transition-colors">
               <div class="flex items-center gap-1.5">
                 <span>Vo (Saída)</span>
-                <select :value="globalVoUnit || 'V'" @change="(e) => emit('updateVoUnit', (e.target as HTMLSelectElement).value)" class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-[9px] px-1 py-0.5 rounded cursor-pointer outline-none hover:border-slate-400 dark:hover:border-slate-500 transition-colors appearance-none text-center font-bold">
+                <select 
+                  :value="globalVoUnit || 'V'" 
+                  @change="(e) => emit('updateVoUnit', (e.target as HTMLSelectElement).value)" 
+                  class="cb-select-unit" 
+                  style="border: 1px solid var(--border-default); border-radius: var(--radius-sm); font-size: 10px; padding-top: 2px; padding-bottom: 2px;"
+                >
                   <option value="V">V</option>
                   <option value="mV">mV</option>
                   <option value="uV">µV</option>
                 </select>
               </div>
             </th>
-            <th class="py-3 px-4 text-center">Gv (Linear)</th>
+            <th class="py-3 px-4 text-center">Gv (Lin)</th>
             <th class="py-3 px-4 text-center">Av (dB)</th>
-            <th class="py-3 px-4 text-center">Fase θ (Graus)</th>
+            <th class="py-3 px-4 text-center">Fase θ (°)</th>
             <th class="py-3 px-4 text-center w-16">Ação</th>
           </tr>
         </thead>
@@ -155,9 +166,9 @@ function getProcessedRow(id: number) {
           <tr v-if="experimentalData.length === 0">
             <td colspan="6" class="py-12 text-center">
               <div class="flex flex-col items-center justify-center gap-3 opacity-60">
-                <span class="material-symbols-outlined text-5xl text-slate-600">query_stats</span>
-                <p class="font-sans text-sm text-slate-400 font-medium">Nenhum dado experimental inserido.</p>
-                <p class="font-sans text-xs text-slate-500 max-w-sm">Adicione um ponto para visualizar os gráficos de Bode.</p>
+                <span class="material-symbols-outlined text-5xl" style="color:var(--text-tertiary)">query_stats</span>
+                <p class="font-sans text-sm font-medium" style="color:var(--text-tertiary)">Nenhum dado experimental inserido.</p>
+                <p class="font-sans text-xs max-w-sm" style="color:var(--text-tertiary)">Adicione um ponto para visualizar os gráficos de Bode.</p>
               </div>
             </td>
           </tr>
@@ -166,10 +177,10 @@ function getProcessedRow(id: number) {
             v-for="row in experimentalData" 
             :key="row.id"
             :class="[
-              (!isNaN(getProcessedRow(row.id).gvDb as number) && getProcessedRow(row.id).gvDb === maxGvDb && processedData.length > 1) ? 'bg-indigo-50/30 dark:bg-indigo-900/10 hover:bg-slate-100 dark:hover:bg-slate-900/40' : 
-              (closestToCutoffId === row.id) ? 'bg-orange-50/50 dark:bg-orange-900/20 hover:bg-slate-100 dark:hover:bg-slate-900/40' : 'hover:bg-slate-100 dark:hover:bg-slate-900/40',
-              'border-b border-slate-200 dark:border-slate-900/50 transition-colors'
+              (closestToCutoffId === row.id) ? '' : '',
+              'transition-colors'
             ]"
+            :style="(!isNaN(getProcessedRow(row.id).gvDb as number) && getProcessedRow(row.id).gvDb === maxGvDb && processedData.length > 1) ? 'background:var(--primary-surface);border-bottom:1px solid var(--border-subtle)' : (closestToCutoffId === row.id) ? 'background:var(--warning-surface);border-bottom:1px solid var(--border-subtle)' : 'border-bottom:1px solid var(--border-subtle)'"
           >
             <td class="py-2.5 px-4 relative">
               <span v-if="closestToCutoffId === row.id" class="absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-orange-500 rounded-r" title="Frequência mais próxima do Corte (-3dB)"></span>
@@ -181,10 +192,8 @@ function getProcessedRow(id: number) {
                 :value="formatForInput(row.freq)" 
                 @change="e => onInputChange(e, row, 'freq')"
                   @keydown="e => handleKeydown(e, row.id, 'freq')"
-                  :class="[
-                    closestToCutoffId === row.id ? 'border-orange-300 dark:border-orange-500/50 focus:border-orange-500 focus:ring-orange-500 bg-orange-50/50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300' : 'border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-600',
-                    'w-full rounded px-2 py-1 focus:ring-1 focus:outline-none font-mono text-xs transition-colors'
-                  ]"
+                  class="cb-input text-xs py-1 px-2"
+                  :style="closestToCutoffId === row.id ? 'border-color:var(--warning);color:var(--warning-text)' : ''"
                 />
               </div>
             </td>
@@ -195,17 +204,15 @@ function getProcessedRow(id: number) {
                 :value="formatForInput(row.vo)" 
                 @change="e => onInputChange(e, row, 'vo')"
                 @keydown="e => handleKeydown(e, row.id, 'vo')"
-                :class="[
-                  (row.vo || 0) > globalVs ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' : 'border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600',
-                  'w-full rounded px-2 focus:ring-1 py-1 focus:outline-none font-mono text-xs transition-colors'
-                ]"
+                class="cb-input text-xs py-1 px-2"
+                :style="(row.vo || 0) > globalVs ? 'border-color:var(--error);color:var(--error-text)' : ''"
                 :title="(row.vo || 0) > globalVs ? 'Alerta: Vo maior que Vs' : ''" 
               />
             </td>
-            <td class="py-2.5 px-4 text-center text-slate-600 dark:text-slate-300 font-mono text-xs">
+            <td class="py-2.5 px-4 text-center font-mono text-xs" style="color:var(--text-secondary)">
               {{ isNaN(getProcessedRow(row.id).gvLinear as number) ? "N/A" : (getProcessedRow(row.id).gvLinear as number).toFixed(4) }}
             </td>
-            <td class="py-2.5 px-4 text-center text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold whitespace-nowrap">
+            <td class="py-2.5 px-4 text-center font-mono text-xs font-bold whitespace-nowrap" style="color:var(--success-text)">
               <span v-if="(!isNaN(getProcessedRow(row.id).gvDb as number) && getProcessedRow(row.id).gvDb === maxGvDb && processedData.length > 1)" class="material-symbols-outlined text-[14px] text-amber-500 align-text-bottom mr-1" title="Pico de Ganho">star</span>
               {{ isNaN(getProcessedRow(row.id).gvDb as number) ? "N/A" : `${(getProcessedRow(row.id).gvDb as number).toFixed(2)}` }}
             </td>
@@ -217,15 +224,13 @@ function getProcessedRow(id: number) {
                 @change="e => onInputChange(e, row, 'phase')"
                 @keydown="e => handleKeydown(e, row.id, 'phase')"
                 :placeholder="getProcessedRow(row.id).isInterpolated ? `Auto: ${(getProcessedRow(row.id).phase || 0).toFixed(1)}°` : 'Fase (°)'" 
-                :class="[
-                  'w-full bg-slate-50 dark:bg-slate-900/50 border hover:border-slate-300 dark:hover:border-slate-600 rounded px-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 py-1 focus:outline-none font-mono text-xs transition-colors',
-                  getProcessedRow(row.id).isInterpolated ? 'border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 placeholder:text-indigo-400 dark:placeholder:text-indigo-500' : 'border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500'
-                ]"
+                class="cb-input text-xs py-1 px-2"
+                :style="getProcessedRow(row.id).isInterpolated ? 'border-color:var(--primary-border);color:var(--primary-text)' : ''"
                 :title="getProcessedRow(row.id).isInterpolated ? 'Valor calculado automaticamente. Digite para substituir.' : ''"
               />
             </td>
             <td class="py-2.5 px-4 text-center whitespace-nowrap">
-              <button @click="emit('deleteRow', row.id)" type="button" class="text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 transition-colors p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-transparent" title="Excluir ponto">
+              <button @click="emit('deleteRow', row.id)" type="button" class="transition-colors p-1 rounded border border-transparent" style="color:var(--error-text)" title="Excluir ponto">
                 <span class="material-symbols-outlined text-[16px]">delete</span>
               </button>
             </td>
@@ -240,26 +245,26 @@ function getProcessedRow(id: number) {
         <button 
           @click="emit('addRow')"
           type="button" 
-          class="w-full sm:w-auto text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded shadow-sm flex items-center justify-center gap-1 transition-all"
+          class="cb-btn w-full sm:w-auto flex items-center justify-center gap-1"
         >
           <span class="material-symbols-outlined text-[16px]">add</span> Adicionar Ponto
         </button>
         <button 
           @click="showGenerator = !showGenerator"
           type="button" 
-          class="w-full sm:w-auto text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 px-4 py-2 rounded shadow-sm flex items-center justify-center gap-1 transition-all"
+          class="cb-btn-outline w-full sm:w-auto flex items-center justify-center gap-1"
         >
           <span class="material-symbols-outlined text-[16px]">auto_fix_high</span> Gerar Décadas
         </button>
       </div>
       
       <div class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-        <PassiveCalibrationControl @apply="(factor) => emit('applyCalibration', factor)" />
+        <CalibrationControl label="Calibrar Vo" @apply="(factor) => emit('applyCalibration', factor)" />
 
         <button 
           @click="triggerFileInput"
           type="button" 
-          class="w-full sm:w-auto text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/50 px-4 py-2 rounded flex items-center justify-center gap-1 transition-all"
+          class="cb-btn-outline w-full sm:w-auto flex items-center justify-center gap-1"
         >
           <span class="material-symbols-outlined text-[16px]">upload_file</span> Importar CSV
         </button>
@@ -274,15 +279,16 @@ function getProcessedRow(id: number) {
         <button 
           @click="emit('exportCsv')"
           type="button" 
-          class="w-full sm:w-auto text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 px-4 py-2 rounded flex items-center justify-center gap-1 transition-all"
+          class="w-full sm:w-auto text-xs font-bold px-4 py-2 rounded flex items-center justify-center gap-1 transition-all cursor-pointer font-sans"
+          style="background:var(--success-surface);color:var(--success-text);border:1px solid rgba(16,185,129,0.2)"
         >
-          <span class="material-symbols-outlined text-[16px]">save</span> Exportar Tabela (CSV)
+          <span class="material-symbols-outlined text-[16px]">save</span> Exportar (CSV)
         </button>
       </div>
     </div>
     
     <!-- Generator Panel -->
-    <PassiveDecadeGenerator 
+    <DecadeGenerator 
       v-if="showGenerator" 
       @generate="(start, end, points) => { emit('generateDecades', start, end, points); showGenerator = false; }"
       @cancel="showGenerator = false"
