@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { type ExperimentalData, analyzeCutoffAndInterpolation } from '../../utils/mathUtils';
+import { type ExperimentalData, analyzeCutoffAndInterpolation, getUnitMultiplier } from '../../utils/mathUtils';
 import DataTable from './DataTable.vue';
 import ChartsPanel from './ChartsPanel.vue';
 import EquationCard from './EquationCard.vue';
@@ -12,10 +12,11 @@ const experimentalData = ref<ExperimentalData[]>([]);
 const globalVs = ref(1.0);
 const globalVsUnit = ref('V');
 const globalVoUnit = ref('V');
+const globalVsMode = ref<'vpp' | 'vrms'>('vpp');
 
 // --- Computed ---
 const analysisResult = computed(() => {
-  return analyzeCutoffAndInterpolation(experimentalData.value, globalVs.value, globalVsUnit.value, globalVoUnit.value);
+  return analyzeCutoffAndInterpolation(experimentalData.value, globalVs.value, globalVsUnit.value, globalVoUnit.value, globalVsMode.value);
 });
 
 const processedData = computed(() => {
@@ -118,7 +119,8 @@ function saveStateToStorage() {
       experimentalData: experimentalData.value,
       globalVs: globalVs.value,
       globalVsUnit: globalVsUnit.value,
-      globalVoUnit: globalVoUnit.value
+      globalVoUnit: globalVoUnit.value,
+      globalVsMode: globalVsMode.value
     };
     localStorage.setItem('circuitBookState', JSON.stringify(dataToSave));
   } catch (e) {
@@ -136,6 +138,7 @@ function loadStateFromStorage(): boolean {
         if (parsed.globalVs) globalVs.value = parsed.globalVs;
         if (parsed.globalVsUnit) globalVsUnit.value = parsed.globalVsUnit;
         if (parsed.globalVoUnit) globalVoUnit.value = parsed.globalVoUnit;
+        if (parsed.globalVsMode) globalVsMode.value = parsed.globalVsMode;
         return true;
       }
     }
@@ -146,7 +149,7 @@ function loadStateFromStorage(): boolean {
 }
 
 // Watchers to auto-save and auto-sort
-watch([experimentalData, globalVs, globalVsUnit, globalVoUnit], () => {
+watch([experimentalData, globalVs, globalVsUnit, globalVoUnit, globalVsMode], () => {
   // Sort automatically by frequency whenever data changes
   experimentalData.value.sort((a, b) => a.freq - b.freq);
   saveStateToStorage();
@@ -156,7 +159,10 @@ watch([experimentalData, globalVs, globalVsUnit, globalVoUnit], () => {
 function updateRow(id: number, field: 'freq' | 'vo' | 'phase', value: number | null) {
   const index = experimentalData.value.findIndex(r => r.id === id);
   if (index !== -1) {
-    experimentalData.value[index][field] = value as any;
+    const updatedRow = { ...experimentalData.value[index], [field]: value };
+    const newArray = [...experimentalData.value];
+    newArray[index] = updatedRow as any;
+    experimentalData.value = newArray;
   }
 }
 
@@ -182,12 +188,15 @@ function addRow() {
     else initialFreq = lastFreq + 1000;
   }
 
-  experimentalData.value.push({
-    id: newId,
-    freq: initialFreq,
-    vo: 0,
-    phase: null
-  });
+  experimentalData.value = [
+    ...experimentalData.value,
+    {
+      id: newId,
+      freq: initialFreq,
+      vo: 0,
+      phase: null
+    }
+  ];
 }
 
 function clearTable() {
@@ -205,11 +214,6 @@ function updateVs(value: number) {
   globalVs.value = value;
 }
 
-function getUnitMultiplier(unit: string) {
-  if (unit === 'mV') return 1e-3;
-  if (unit === 'uV') return 1e-6;
-  return 1;
-}
 
 function updateVsUnit(newUnit: string) {
   const oldUnit = globalVsUnit.value;
@@ -229,20 +233,22 @@ function updateVoUnit(newUnit: string) {
   const oldMult = getUnitMultiplier(oldUnit);
   const newMult = getUnitMultiplier(newUnit);
   
-  experimentalData.value.forEach(row => {
+  experimentalData.value = experimentalData.value.map(row => {
     if (row.vo !== undefined && row.vo !== null) {
-      row.vo = parseFloat((row.vo * (oldMult / newMult)).toFixed(6));
+      return { ...row, vo: parseFloat((row.vo * (oldMult / newMult)).toFixed(6)) };
     }
+    return row;
   });
   
   globalVoUnit.value = newUnit;
 }
 
 function applyCalibrationFactor(factor: number) {
-  experimentalData.value.forEach(row => {
+  experimentalData.value = experimentalData.value.map(row => {
     if (row.vo !== undefined && row.vo !== null) {
-      row.vo = parseFloat((row.vo * factor).toFixed(6));
+      return { ...row, vo: parseFloat((row.vo * factor).toFixed(6)) };
     }
+    return row;
   });
   showToast(`Calibração aplicada: Valores Vo multiplicados por ${factor}x`, "success");
 }
@@ -272,12 +278,13 @@ function generateDecades(startFreq: number, endFreq: number, pointsPerDecade: nu
     currentDecade *= 10;
   }
   
+  const updatedList = [...experimentalData.value];
   let addedCount = 0;
   newPoints.forEach(f => {
-    const exists = experimentalData.value.find(p => p.freq === f);
+    const exists = updatedList.find(p => p.freq === f);
     if (!exists) {
-      const newId = experimentalData.value.length > 0 ? Math.max(...experimentalData.value.map(d => d.id)) + 1 : 1;
-      experimentalData.value.push({
+      const newId = updatedList.length > 0 ? Math.max(...updatedList.map(d => d.id)) + 1 : 1;
+      updatedList.push({
         id: newId,
         freq: f,
         vo: 0,
@@ -288,6 +295,7 @@ function generateDecades(startFreq: number, endFreq: number, pointsPerDecade: nu
   });
   
   if (addedCount > 0) {
+    experimentalData.value = updatedList;
     showToast(`${addedCount} frequências geradas com sucesso!`, "success");
   } else {
     showToast("Nenhuma nova frequência foi adicionada (já existem).", "info");
@@ -296,7 +304,10 @@ function generateDecades(startFreq: number, endFreq: number, pointsPerDecade: nu
 
 function exportCsv() {
   const rows = processedData.value;
-  if (rows.length === 0) return;
+  if (rows.length === 0) {
+    showToast("Nenhum dado para exportar!", "error");
+    return;
+  }
 
   let csvContent = "data:text/csv;charset=utf-8,";
   csvContent += `Vs(Global),${globalVs.value} V\n\n`;
@@ -327,7 +338,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="w-full space-y-8 relative">
+  <div class="w-full space-y-6 relative">
     <!-- Interface Dashboard Grid -->
     <div class="w-full">
       <DataTable 
@@ -336,6 +347,7 @@ onMounted(() => {
         :globalVs="globalVs"
         :globalVsUnit="globalVsUnit"
         :globalVoUnit="globalVoUnit"
+        :amplitudeMode="globalVsMode"
         :maxGvDb="maxGvDb"
         :closestToCutoffId="closestToCutoffId"
         @updateRow="updateRow"
@@ -345,6 +357,7 @@ onMounted(() => {
         @updateVs="updateVs"
         @updateVsUnit="updateVsUnit"
         @updateVoUnit="updateVoUnit"
+        @updateAmplitudeMode="(mode) => globalVsMode = mode"
         @applyCalibration="applyCalibrationFactor"
         @generateDecades="generateDecades"
         @exportCsv="exportCsv"
@@ -363,6 +376,7 @@ onMounted(() => {
         :globalVs="globalVs"
         :globalVsUnit="globalVsUnit"
         :isOpamp="false"
+        :amplitudeMode="globalVsMode"
       />
     </div>
 
@@ -378,21 +392,21 @@ onMounted(() => {
     <Teleport to="body" v-if="isMounted">
       <Transition name="fade">
         <div v-if="isConfirmModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
-          <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="closeConfirm"></div>
+          <div class="absolute inset-0 backdrop-blur-sm" style="background:rgba(0,0,0,0.5)" @click="closeConfirm"></div>
           <Transition name="scale">
-            <div v-if="isConfirmModalOpen" class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-6 rounded-lg shadow-2xl w-full max-w-sm">
-              <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
-                <span class="material-symbols-outlined text-rose-500">warning</span> 
+            <div v-if="isConfirmModalOpen" class="cb-card relative p-6 w-full max-w-sm" style="box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
+              <h3 class="text-lg font-bold mb-2 flex items-center gap-2" style="color:var(--text-primary)">
+                <span class="material-symbols-outlined" style="color:var(--error-text)">warning</span> 
                 {{ confirmModalTitle }}
               </h3>
-              <p class="text-sm text-slate-600 dark:text-slate-400 mb-6 font-sans leading-relaxed">
+              <p class="text-sm mb-6 font-sans leading-relaxed" style="color:var(--text-secondary)">
                 {{ confirmModalMessage }}
               </p>
               <div class="flex justify-end gap-3">
-                <button @click="closeConfirm" type="button" class="px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded transition-colors">
+                <button @click="closeConfirm" type="button" class="cb-btn-outline px-4 py-2">
                   Cancelar
                 </button>
-                <button @click="handleConfirm" type="button" class="px-4 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 rounded shadow-sm transition-colors">
+                <button @click="handleConfirm" type="button" class="px-4 py-2 text-sm font-bold text-white rounded shadow-sm transition-colors" style="background:var(--error);">
                   Confirmar
                 </button>
               </div>
@@ -411,10 +425,11 @@ onMounted(() => {
             :key="toast.id" 
             :class="[
               'px-4 py-2.5 rounded border shadow-2xl backdrop-blur-md flex items-center gap-2 text-sm font-medium',
-              toast.type === 'success' ? 'bg-emerald-950 border-emerald-500/50 text-emerald-400' :
-              toast.type === 'error' ? 'bg-rose-950 border-rose-500/50 text-rose-400' :
-              'bg-slate-800/95 border-slate-600/50 text-slate-200'
+              toast.type === 'success' ? 'text-[var(--success-text)]' :
+              toast.type === 'error' ? 'text-[var(--error-text)]' :
+              ''
             ]"
+            :style="toast.type === 'success' ? 'background:var(--success-surface);border-color:rgba(34,197,94,0.3)' : toast.type === 'error' ? 'background:var(--error-surface);border-color:rgba(239,68,68,0.3)' : 'background:var(--surface-card);border-color:var(--border-default);color:var(--text-primary)'"
           >
             <span class="material-symbols-outlined text-[18px]">
               {{ toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info' }}

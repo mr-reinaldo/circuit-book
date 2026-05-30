@@ -13,9 +13,57 @@ const experimentalData = ref<OpampDataPoint[]>([]);
 const globalVinPp = ref<number>(1.0);
 const globalVinUnit = ref<string>('V');
 const globalVoutUnit = ref<string>('V');
+const globalVinMode = ref<'vpp' | 'vrms'>('vpp');
+const isMounted = ref(false);
+
+// --- Modal State ---
+const isConfirmModalOpen = ref(false);
+const confirmModalTitle = ref('');
+const confirmModalMessage = ref('');
+const confirmModalCallback = ref<() => void>(() => {});
+
+function showConfirm(title: string, message: string, onConfirm: () => void) {
+  confirmModalTitle.value = title;
+  confirmModalMessage.value = message;
+  confirmModalCallback.value = onConfirm;
+  isConfirmModalOpen.value = true;
+}
+
+function closeConfirm() {
+  isConfirmModalOpen.value = false;
+}
+
+function handleConfirm() {
+  confirmModalCallback.value();
+  closeConfirm();
+}
+
+// --- Toast State ---
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'info' | 'error';
+}
+const toasts = ref<Toast[]>([]);
+let toastIdCounter = 0;
+
+function showToast(message: string, type: 'success' | 'info' | 'error' = 'info') {
+  const id = toastIdCounter++;
+  toasts.value.push({ id, message, type });
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id);
+  }, 3000);
+}
 
 // Load from local storage on mount
 onMounted(() => {
+  isMounted.value = true;
+
+  // Ouvir eventos globais de toast para maior desacoplamento de componentes
+  window.addEventListener('show-toast', ((e: CustomEvent) => {
+    if (e.detail) showToast(e.detail.message, e.detail.type || 'info');
+  }) as EventListener);
+
   const saved = localStorage.getItem('circuit-book-opamp-data');
   if (saved) {
     try {
@@ -24,6 +72,10 @@ onMounted(() => {
       globalVinPp.value = parsed.globalVinPp || 1.0;
       globalVinUnit.value = parsed.globalVinUnit || 'V';
       globalVoutUnit.value = parsed.globalVoutUnit || 'V';
+      globalVinMode.value = parsed.globalVinMode || 'vpp';
+      if (experimentalData.value.length > 0) {
+        setTimeout(() => showToast("Sessão anterior de Filtros Ativos restaurada automaticamente.", "info"), 500);
+      }
     } catch (e) {
       console.error("Failed to load opamp data", e);
     }
@@ -35,7 +87,8 @@ const analysisResult = computed(() => {
     experimentalData.value, 
     globalVinPp.value,
     globalVinUnit.value,
-    globalVoutUnit.value
+    globalVoutUnit.value,
+    globalVinMode.value
   );
 });
 
@@ -51,7 +104,7 @@ function handleImportCsv(text: string) {
   try {
     const parsed = parseCsvContent(text);
     if (parsed.points.length === 0) {
-      alert("Nenhum ponto válido encontrado no arquivo CSV.");
+      showToast("Nenhum ponto válido encontrado no arquivo CSV.", "error");
       return;
     }
 
@@ -72,13 +125,11 @@ function handleImportCsv(text: string) {
       phase: p.phase !== undefined && p.phase !== null ? p.phase : null
     }));
 
-
-    alert(`CSV importado com sucesso: ${parsed.points.length} pontos carregados.`);
+    showToast(`CSV importado com sucesso: ${parsed.points.length} pontos carregados.`, "success");
   } catch (err: any) {
-    alert(`Erro de parser CSV: ${err.message}`);
+    showToast(`Erro de parser CSV: ${err.message}`, "error");
   }
 }
-
 
 const handleUpdateData = (newData: OpampDataPoint[]) => {
   experimentalData.value = newData;
@@ -86,15 +137,27 @@ const handleUpdateData = (newData: OpampDataPoint[]) => {
 };
 
 const handleRemovePoint = (id: string) => {
-  experimentalData.value = experimentalData.value.filter(p => p.id !== id);
-  saveData();
+  showConfirm(
+    'Excluir Ponto',
+    'Tem certeza que deseja apagar este ponto da tabela? Isso recalculará os gráficos.',
+    () => {
+      experimentalData.value = experimentalData.value.filter(p => p.id !== id);
+      saveData();
+      showToast("Ponto excluído com sucesso.", "success");
+    }
+  );
 };
 
 const handleClearData = () => {
-  if (confirm("Tem certeza que deseja limpar todos os dados experimentais?")) {
-    experimentalData.value = [];
-    saveData();
-  }
+  showConfirm(
+    'Limpar Tabela',
+    'Tem certeza que deseja apagar TODOS os dados experimentais? Esta ação não pode ser desfeita.',
+    () => {
+      experimentalData.value = [];
+      saveData();
+      showToast("Tabela limpa com sucesso.", "info");
+    }
+  );
 };
 
 const handleUpdateVinPp = (newVal: number) => {
@@ -124,9 +187,11 @@ const handleUpdateVoutUnit = (newUnit: string) => {
   const oldMult = getUnitMultiplier(oldUnit);
   const newMult = getUnitMultiplier(newUnit);
   
-  experimentalData.value.forEach(row => {
-    if (row.vMax !== null) row.vMax = parseFloat((row.vMax * (oldMult / newMult)).toFixed(6));
-    if (row.vMin !== null) row.vMin = parseFloat((row.vMin * (oldMult / newMult)).toFixed(6));
+  experimentalData.value = experimentalData.value.map(row => {
+    const newRow = { ...row };
+    if (newRow.vMax !== null) newRow.vMax = parseFloat((newRow.vMax * (oldMult / newMult)).toFixed(6));
+    if (newRow.vMin !== null) newRow.vMin = parseFloat((newRow.vMin * (oldMult / newMult)).toFixed(6));
+    return newRow;
   });
   
   globalVoutUnit.value = newUnit;
@@ -138,14 +203,15 @@ const saveData = () => {
     experimentalData: experimentalData.value,
     globalVinPp: globalVinPp.value,
     globalVinUnit: globalVinUnit.value,
-    globalVoutUnit: globalVoutUnit.value
+    globalVoutUnit: globalVoutUnit.value,
+    globalVinMode: globalVinMode.value
   }));
 };
 
 const exportToCsv = () => {
   const rows = analysisResult.value.processedPoints;
   if (rows.length === 0) {
-    alert("Nenhum dado para exportar!");
+    showToast("Nenhum dado para exportar!", "error");
     return;
   }
 
@@ -171,12 +237,15 @@ const exportToCsv = () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  
+  showToast("Tabela exportada com sucesso para CSV!", "success");
 };
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Data Table Section -->
+    <!-- Bench Data Analyzer Tab -->
+    <div class="space-y-6">
       <OpampDataTable 
         :experimentalData="experimentalData"
         :processedData="analysisResult.processedPoints"
@@ -185,12 +254,14 @@ const exportToCsv = () => {
         :globalVinPp="globalVinPp"
         :globalVinUnit="globalVinUnit"
         :globalVoutUnit="globalVoutUnit"
+        :amplitudeMode="globalVinMode"
         @updateData="handleUpdateData"
         @removePoint="handleRemovePoint"
         @clearData="handleClearData"
         @updateVinPp="handleUpdateVinPp"
         @updateVinUnit="handleUpdateVinUnit"
         @updateVoutUnit="handleUpdateVoutUnit"
+        @updateAmplitudeMode="(mode) => { globalVinMode = mode; saveData(); }"
         @exportCsv="exportToCsv"
         @importCsv="handleImportCsv"
       />
@@ -205,6 +276,7 @@ const exportToCsv = () => {
           :detectedOrder="analysisResult ? analysisResult.detectedOrder : 1"
           :globalVs="globalVinPp"
           :globalVsUnit="globalVinUnit"
+          :amplitudeMode="globalVinMode"
         />
       </div>
 
@@ -212,5 +284,95 @@ const exportToCsv = () => {
         :processed-data="(analysisResult.processedPoints as any)"
         :cutoff-frequency="analysisResult.cutoffFreq"
       />
+    </div>
+
+    <!-- Native Vue Confirm Modal -->
+    <Teleport to="body" v-if="isMounted">
+      <Transition name="fade">
+        <div v-if="isConfirmModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
+          <div class="absolute inset-0 backdrop-blur-sm" style="background:rgba(0,0,0,0.5)" @click="closeConfirm"></div>
+          <Transition name="scale">
+            <div v-if="isConfirmModalOpen" class="cb-card relative p-6 w-full max-w-sm" style="box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
+              <h3 class="text-lg font-bold mb-2 flex items-center gap-2" style="color:var(--text-primary)">
+                <span class="material-symbols-outlined" style="color:var(--error-text)">warning</span> 
+                {{ confirmModalTitle }}
+              </h3>
+              <p class="text-sm mb-6 font-sans leading-relaxed" style="color:var(--text-secondary)">
+                {{ confirmModalMessage }}
+              </p>
+              <div class="flex justify-end gap-3">
+                <button @click="closeConfirm" type="button" class="cb-btn-outline px-4 py-2">
+                  Cancelar
+                </button>
+                <button @click="handleConfirm" type="button" class="px-4 py-2 text-sm font-bold text-white rounded shadow-sm transition-colors" style="background:var(--error);">
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Native Vue Toasts -->
+    <Teleport to="body" v-if="isMounted">
+      <div class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2">
+        <TransitionGroup name="toast">
+          <div 
+            v-for="toast in toasts" 
+            :key="toast.id" 
+            :class="[
+              'px-4 py-2.5 rounded border shadow-2xl backdrop-blur-md flex items-center gap-2 text-sm font-medium',
+              toast.type === 'success' ? 'text-[var(--success-text)]' :
+              toast.type === 'error' ? 'text-[var(--error-text)]' :
+              ''
+            ]"
+            :style="toast.type === 'success' ? 'background:var(--success-surface);border-color:rgba(34,197,94,0.3)' : toast.type === 'error' ? 'background:var(--error-surface);border-color:rgba(239,68,68,0.3)' : 'background:var(--surface-card);border-color:var(--border-default);color:var(--text-primary)'"
+          >
+            <span class="material-symbols-outlined text-[18px]">
+              {{ toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info' }}
+            </span> 
+            {{ toast.message }}
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
   </div>
 </template>
+
+<style>
+/* Modal Fade Transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Modal Scale Transition */
+.scale-enter-active,
+.scale-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Toast Transition */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+</style>

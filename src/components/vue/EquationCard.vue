@@ -11,6 +11,7 @@ const props = defineProps<{
   globalVs: number;
   globalVsUnit?: string;
   isOpamp?: boolean;
+  amplitudeMode?: 'vpp' | 'vrms';
 }>();
 
 // Helper to format values for display
@@ -36,18 +37,39 @@ const magnitudeLatex = computed(() => {
     const vMin = p.vMin !== null ? p.vMin : 0;
     const vppOut = Math.abs(vMax - vMin);
     const vin = props.globalVs;
-    const gv = vppOut / vin;
 
-    formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (pp)}}}{V_{in\\text{ (pp)}}}';
-    substitution = `V_{out\\text{ (pp)}} = |${formatNum(vMax)} - (${formatNum(vMin)})| = ${formatNum(vppOut)}\\text{ V}`;
-    substitution += `\\\\ A_v = \\frac{${formatNum(vppOut)}\\text{ V}}{${formatNum(vin)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    if (props.amplitudeMode === 'vrms') {
+      const voutRms = vppOut / (2 * Math.sqrt(2));
+      const gv = voutRms / vin;
+
+      formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\quad , \\quad V_{out\\text{ (rms)}} = \\frac{V_{out\\text{ (pp)}}}{2\\sqrt{2}} \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (rms)}}}{V_{in\\text{ (rms)}}}';
+      substitution = `V_{out\\text{ (pp)}} = |${formatNum(vMax)} - (${formatNum(vMin)})| = ${formatNum(vppOut)}\\text{ V}`;
+      substitution += `\\\\ V_{out\\text{ (rms)}} = \\frac{${formatNum(vppOut)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voutRms)}\\text{ V}`;
+      substitution += `\\\\ A_v = \\frac{${formatNum(voutRms)}\\text{ V}}{${formatNum(vin)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    } else {
+      const gv = vppOut / vin;
+
+      formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (pp)}}}{V_{in\\text{ (pp)}}}';
+      substitution = `V_{out\\text{ (pp)}} = |${formatNum(vMax)} - (${formatNum(vMin)})| = ${formatNum(vppOut)}\\text{ V}`;
+      substitution += `\\\\ A_v = \\frac{${formatNum(vppOut)}\\text{ V}}{${formatNum(vin)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    }
   } else {
     const vo = p.vo !== null ? p.vo : 0;
     const vs = props.globalVs;
-    const gv = vo / vs;
 
-    formula = 'G_v = \\frac{V_o}{V_s}';
-    substitution = `G_v = \\frac{${formatNum(vo)}\\text{ V}}{${formatNum(vs)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    if (props.amplitudeMode === 'vrms') {
+      const voRms = vo / (2 * Math.sqrt(2));
+      const gv = voRms / vs;
+
+      formula = 'V_{o\\text{ (rms)}} = \\frac{V_o}{2\\sqrt{2}} \\quad \\text{e} \\quad G_v = \\frac{V_{o\\text{ (rms)}}}{V_s}';
+      substitution = `V_{o\\text{ (rms)}} = \\frac{${formatNum(vo)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voRms)}\\text{ V}`;
+      substitution += `\\\\ G_v = \\frac{${formatNum(voRms)}\\text{ V}}{${formatNum(vs)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    } else {
+      const gv = vo / vs;
+
+      formula = 'G_v = \\frac{V_o}{V_s}';
+      substitution = `G_v = \\frac{${formatNum(vo)}\\text{ V}}{${formatNum(vs)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    }
   }
 
   const latex = `\\begin{aligned}
@@ -210,26 +232,26 @@ function formatFreq(f: number): string {
 </script>
 
 <template>
-  <div class="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm transition-colors duration-300">
-    <h2 class="text-lg font-bold tracking-tight text-slate-800 dark:text-white flex items-center gap-2 mb-2">
-      <span class="inline-block h-3 w-3 rounded bg-indigo-500"></span>
-      Equações e Fundamentação Científica (KaTeX)
-    </h2>
-    <p class="text-xs text-slate-500 dark:text-slate-400 mb-5 font-sans">
+  <div class="cb-card p-5">
+    <div class="cb-card-header">
+      <span class="accent-dot"></span>
+      <h2>Equações e Fundamentação Científica (KaTeX)</h2>
+    </div>
+    <p class="cb-subtitle mb-5">
       Abaixo são expostas as equações que regem o comportamento físico deste circuito eletrônico, demonstrando as substituições passo a passo com base nos dados experimentais.
     </p>
 
     <!-- Active Focus Indicator bar -->
-    <div v-if="selectedPoint" class="mb-5 px-3.5 py-2.5 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-700 dark:text-slate-350 transition-colors duration-300">
+    <div v-if="selectedPoint" class="mb-5 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs" style="background:var(--primary-surface);border:1px solid var(--primary-border);border-radius:var(--radius-md);color:var(--text-secondary)">
       <div class="flex items-center gap-2 font-sans">
-        <span class="material-symbols-outlined text-[18px] text-indigo-500">analytics</span>
-        <span>Exibindo passo a passo para a frequência de: <strong class="font-mono text-indigo-600 dark:text-indigo-400 text-sm ml-1">{{ formatFreq(selectedPoint.freq) }}</strong></span>
+        <span class="material-symbols-outlined text-[18px]" style="color:var(--primary-text)">analytics</span>
+        <span>Exibindo passo a passo para a frequência de: <strong class="font-mono text-sm ml-1" style="color:var(--primary-text)">{{ formatFreq(selectedPoint.freq) }}</strong></span>
       </div>
       <div class="flex items-center gap-1.5 self-start sm:self-auto">
-        <span v-if="selectedPoint.freq === fc" class="font-sans text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-900/50 flex items-center gap-1">
+        <span v-if="selectedPoint.freq === fc" class="cb-status" style="background:var(--warning-surface);color:var(--warning-text);border:1px solid rgba(217,119,6,0.2);font-size:10px">
           <span class="material-symbols-outlined text-[12px]">filter_alt</span> Frequência de Corte (fc)
         </span>
-        <span v-else class="font-sans text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 flex items-center gap-1">
+        <span v-else class="cb-status" style="background:var(--primary-surface);color:var(--primary-text);border:1px solid var(--primary-border);font-size:10px">
           <span class="material-symbols-outlined text-[12px]">visibility</span> Ponto Empírico Focado
         </span>
       </div>
@@ -239,26 +261,26 @@ function formatFreq(f: number): string {
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       
       <!-- Freq de Corte / Heuristica (Spans 2 columns on desktop to provide ample math space) -->
-      <div class="md:col-span-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto text-slate-800 dark:text-slate-200 shadow-inner">
-        <h3 class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2 font-sans">1. Diagnóstico do Filtro e Frequência de Corte</h3>
+      <div class="md:col-span-2 cb-inset p-4 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto" style="color:var(--text-primary)">
+        <h3 class="cb-section-label mb-2">1. Diagnóstico do Filtro e Frequência de Corte</h3>
         <div v-html="cutoffFormulaLatex" class="math-container"></div>
       </div>
 
       <!-- Selected point: Magnitude linear -->
-      <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto text-slate-800 dark:text-slate-200 shadow-inner">
-        <h3 class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2 font-sans">2. Ganho de Tensão (Magnitude Linear)</h3>
+      <div class="cb-inset p-4 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto" style="color:var(--text-primary)">
+        <h3 class="cb-section-label mb-2">2. Ganho de Tensão (Magnitude Linear)</h3>
         <div v-html="magnitudeLatex" class="math-container"></div>
       </div>
 
       <!-- Selected point: dB Gain -->
-      <div class="p-4 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto text-slate-800 dark:text-slate-200 shadow-inner">
-        <h3 class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2 font-sans">3. Conversão Logarítmica (Decibéis)</h3>
+      <div class="cb-inset p-4 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto" style="color:var(--text-primary)">
+        <h3 class="cb-section-label mb-2">3. Conversão Logarítmica (Decibéis)</h3>
         <div v-html="dbLatex" class="math-container"></div>
       </div>
 
       <!-- Selected point: Phase Error margins (Spans 2 columns on desktop for detailed feedback notes) -->
-      <div class="md:col-span-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto text-slate-800 dark:text-slate-200 shadow-inner">
-        <h3 class="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 tracking-wider mb-2 font-sans">4. Margem de Erro de Fase (θ)</h3>
+      <div class="md:col-span-2 cb-inset p-4 flex flex-col justify-center min-h-[140px] text-xs font-mono overflow-x-auto" style="color:var(--text-primary)">
+        <h3 class="cb-section-label mb-2">4. Margem de Erro de Fase (θ)</h3>
         <div v-html="phaseLatex" class="math-container"></div>
       </div>
 

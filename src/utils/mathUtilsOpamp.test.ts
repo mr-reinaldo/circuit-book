@@ -388,4 +388,17 @@ describe('mathUtilsOpamp', () => {
 
   });
 
+  describe('escala amplitude vrms', () => {
+    it('deve escalar corretamente os ganhos quando amplitudeMode é vrms', () => {
+      const data: OpampDataPoint[] = [
+        { id: '1', freq: 100, vMax: 5, vMin: -5, phase: null } // Voutpp = 10 V. VoutRms = 10 / (2 * sqrt(2)) = 3.5355 V
+      ];
+      // VinRms = 2.0 V.
+      // Gain = VoutRms / VinRms = 3.5355 / 2.0 = 1.7678
+      const result = analyzeOpampData(data, 2.0, 'V', 'V', 'vrms');
+      expect(result.processedPoints[0].gvLinear).toBeCloseTo(10 / (2 * Math.sqrt(2)) / 2.0, 4);
+      expect(result.processedPoints[0].gvDb).toBeCloseTo(20 * Math.log10(10 / (2 * Math.sqrt(2)) / 2.0), 3);
+    });
+  });
+
 });

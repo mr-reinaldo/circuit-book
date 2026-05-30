@@ -1,2 +1,421 @@
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════════════
+   DESIGN SYSTEM — Material Design 3 Clean (Circuit Book)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* ── Surface Palette (Light) ── */
+    --surface-base: #f5f5f8;
+    --surface-card: #ffffff;
+    --surface-input: #fafafa;
+    --surface-inset: #f0f0f4;
+    --surface-hover: #ebebf0;
+
+    /* ── Border ── */
+    --border-default: #d4d4dc;
+    --border-subtle: #e5e5ec;
+    --border-focus: #0d9488;
+
+    /* ── Text Palette ── */
+    --text-primary: #1a1a2e;
+    --text-secondary: #525266;
+    --text-tertiary: #8c8ca0;
+    --text-on-primary: #ffffff;
+    --text-placeholder: #a0a0b2;
+
+    /* ── Primary (Teal) ── */
+    --primary: #0d9488;
+    --primary-hover: #0f766e;
+    --primary-surface: #e6f7f5;
+    --primary-border: #b2dfdb;
+    --primary-text: #0d9488;
+
+    /* ── Success ── */
+    --success: #16a34a;
+    --success-surface: #dcfce7;
+    --success-text: #15803d;
+
+    /* ── Warning ── */
+    --warning: #d97706;
+    --warning-surface: #fef3c7;
+    --warning-text: #b45309;
+
+    /* ── Error ── */
+    --error: #dc2626;
+    --error-surface: #fee2e2;
+    --error-text: #b91c1c;
+
+    /* ── Elevation ── */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+
+    /* ── Radii ── */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-full: 9999px;
+  }
+
+  .dark {
+    --surface-base: #111118;
+    --surface-card: #1a1a26;
+    --surface-input: #22222f;
+    --surface-inset: #16161f;
+    --surface-hover: #252535;
+
+    --border-default: #2e2e3e;
+    --border-subtle: #252535;
+    --border-focus: #14b8a6;
+
+    --text-primary: #e8e8f0;
+    --text-secondary: #9898ad;
+    --text-tertiary: #6a6a80;
+    --text-placeholder: #555568;
+
+    --primary: #14b8a6;
+    --primary-hover: #2dd4bf;
+    --primary-surface: rgba(20, 184, 166, 0.08);
+    --primary-border: rgba(20, 184, 166, 0.25);
+    --primary-text: #2dd4bf;
+
+    --success: #22c55e;
+    --success-surface: rgba(34, 197, 94, 0.08);
+    --success-text: #4ade80;
+
+    --warning: #f59e0b;
+    --warning-surface: rgba(245, 158, 11, 0.08);
+    --warning-text: #fbbf24;
+
+    --error: #ef4444;
+    --error-surface: rgba(239, 68, 68, 0.08);
+    --error-text: #f87171;
+
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.25);
+  }
+}
+
+/* ═══ Component Classes ═══ */
+
+@layer components {
+  /* ── Card ── */
+  .cb-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .cb-card:hover { box-shadow: var(--shadow-md); }
+
+  /* ── Card Header ── */
+  .cb-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .cb-card-header .accent-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    flex-shrink: 0;
+  }
+  .cb-card-header h2 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  /* ── Section Label ── */
+  .cb-section-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+
+  /* ── Input ── */
+  .cb-input {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--surface-input);
+    border: 1.5px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.15s ease;
+  }
+  .cb-input::placeholder {
+    color: var(--text-placeholder);
+    font-weight: 400;
+  }
+  .cb-input:hover {
+    border-color: var(--text-tertiary);
+    background: var(--surface-hover);
+  }
+  .cb-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    background: var(--surface-card);
+  }
+
+  /* ── Input Label ── */
+  .cb-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Chip Button (Segmented — MD3) ── */
+  .cb-chip {
+    padding: 9px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1.5px solid var(--border-default);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    user-select: none;
+  }
+  .cb-chip:hover {
+    background: var(--surface-hover);
+    border-color: var(--text-tertiary);
+  }
+  .cb-chip-active {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: var(--text-on-primary) !important;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+    font-weight: 700;
+  }
+
+  /* ── Button Filled ── */
+  .cb-btn {
+    padding: 9px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-on-primary);
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3);
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .cb-btn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  }
+  .cb-btn:active { transform: scale(0.97); }
+
+  /* ── Button Outlined ── */
+  .cb-btn-outline {
+    padding: 9px 18px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-card);
+    border: 1.5px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+  }
+  .cb-btn-outline:hover {
+    background: var(--surface-hover);
+    border-color: var(--text-tertiary);
+  }
+
+  /* ── Summary Strip ── */
+  .cb-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--primary-surface);
+    border: 1px solid var(--primary-border);
+    border-radius: var(--radius-md);
+    font-size: 11.5px;
+  }
+  .cb-summary-label {
+    color: var(--text-tertiary);
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .cb-summary-value {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--primary-text);
+  }
+
+  /* ── Status Chip ── */
+  .cb-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .cb-status-ok {
+    background: var(--success-surface);
+    color: var(--success-text);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+  .cb-status-err {
+    background: var(--error-surface);
+    color: var(--error-text);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  /* ── Tab Button ── */
+  .cb-tab {
+    padding: 10px 14px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .cb-tab:hover {
+    color: var(--text-primary);
+    background: var(--surface-hover);
+  }
+  .cb-tab-active {
+    color: var(--primary-text) !important;
+    border-bottom-color: var(--primary) !important;
+  }
+
+  /* ── Checkbox Label ── */
+  .cb-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--primary-text);
+    cursor: pointer;
+  }
+  .cb-check input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  /* ── Inset Surface ── */
+  .cb-inset {
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+  }
+
+  /* ── Alert ── */
+  .cb-alert-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    font-size: 11.5px;
+    line-height: 1.5;
+    background: var(--error-surface);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: var(--error-text);
+  }
+
+  /* ── Calculator Surface ── */
+  .cb-calc-surface {
+    padding: 14px;
+    border-radius: var(--radius-md);
+    background: var(--primary-surface);
+    border: 1px solid var(--primary-border);
+    margin-bottom: 16px;
+  }
+
+  /* ── Divider ── */
+  .cb-divider {
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    margin: 16px 0;
+  }
+
+  /* ── Subtitle ── */
+  .cb-subtitle {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+  }
+
+  /* ── Calc Result ── */
+  .cb-calc-result {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--surface-inset);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Interactive Unit Select (Magnitude scale) ── */
+  .cb-select-unit {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    width: 60px;
+    padding-left: 8px;
+    padding-right: 20px;
+    outline: none;
+    cursor: pointer;
+    border: none;
+    background-color: var(--surface-input);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 6px center;
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  .cb-select-unit:hover {
+    filter: brightness(1.05);
+    background-color: var(--surface-card);
+  }
+}
