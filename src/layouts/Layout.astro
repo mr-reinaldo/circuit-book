@@ -29,7 +29,10 @@ const {
 		<meta name="author" content="IFPB - Sistemas de Telecomunicações" />
 
 		<!-- Security Content Security Policy (CSP) -->
-		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https://github.com https://avatars.githubusercontent.com; connect-src 'self' https://api.github.com;" />
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://gc.zgo.at; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://mr-reinaldo.goatcounter.com; connect-src 'self' https://api.github.com https://mr-reinaldo.goatcounter.com;" />
+
+		<!-- GoatCounter Web Analytics -->
+		<script data-goatcounter="https://mr-reinaldo.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 
 		<!-- Google Fonts: Inter, Roboto and JetBrains Mono -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -65,7 +68,7 @@ const {
 		<Footer client:idle />
 		
 		<!-- Global Toast Container -->
-		<div id="toast-container" class="fixed bottom-4 right-4 z-[999] flex flex-col gap-2 pointer-events-none"></div>
+		<div id="toast-container" class="fixed bottom-4 right-4 z-999 flex flex-col gap-2 pointer-events-none"></div>
 	</body>
 </html>
 
