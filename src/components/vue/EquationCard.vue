@@ -118,7 +118,7 @@ const phaseLatex = computed(() => {
     const latex = `\\begin{aligned}
       \\textbf{Fase Teorica } (\\theta_{\\text{teor}}): \\quad & ${formatNum(theoretical, 1)}^\\circ \\\\
       \\textbf{Nota de Bancada:} \\quad & \\text{Como a fase na frequencia de } ${formatNum(p.freq, 1)}\\text{ Hz nao foi preenchida,} \\\\
-      & \\text{o ACE calculou o valor teorico/interpolado automaticamente: } \\\\
+      & \\text{o Circuit Book calculou o valor teorico/interpolado automaticamente: } \\\\
       & \\theta = ${formatNum(measured, 1)}^\\circ \\\\
       & \\text{A margem de erro pratica e de } 0\\%\\text{ (ajuste perfeito ao modelo).}
     \\end{aligned}`;

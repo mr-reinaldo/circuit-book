@@ -12,6 +12,9 @@ const {
 	title = "Circuit Book | IFPB",
 	description = "Plataforma de Análise de Circuitos Eletrônicos com Astro.js para o Ensino de Telecomunicações no IFPB."
 } = Astro.props;
+
+const canonicalUrl = Astro.url.href;
+const imageUrl = new URL(`${(import.meta.env as any).BASE_URL}favicon-512.png`, Astro.site || Astro.url).toString();
 ---
 
 <!doctype html>
@@ -20,13 +23,31 @@ const {
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href={`${(import.meta.env as any).BASE_URL}favicon.svg`} />
-		<link rel="icon" href={`${(import.meta.env as any).BASE_URL}favicon.ico`} />
+		<link rel="icon" href={`${(import.meta.env as any).BASE_URL}favicon.ico`} sizes="any" />
+		<link rel="apple-touch-icon" href={`${(import.meta.env as any).BASE_URL}favicon-apple-touch.png`} />
 		<meta name="generator" content={Astro.generator} />
 		
 		<!-- SEO Meta Tags -->
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<meta name="author" content="IFPB - Sistemas de Telecomunicações" />
+
+		<!-- Open Graph / Facebook / WhatsApp -->
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonicalUrl} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={imageUrl} />
+		<meta property="og:image:type" content="image/png" />
+		<meta property="og:image:width" content="512" />
+		<meta property="og:image:height" content="512" />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:url" content={canonicalUrl} />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={imageUrl} />
 
 		<!-- Security Content Security Policy (CSP) -->
 		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://gc.zgo.at; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://mr-reinaldo.goatcounter.com; connect-src 'self' https://api.github.com https://mr-reinaldo.goatcounter.com;" />
@@ -61,7 +82,7 @@ const {
 	</head>
 	<body class="min-h-screen flex flex-col font-sans relative" style="background:var(--surface-base);color:var(--text-primary);transition:background 0.3s ease,color 0.3s ease">
 		
-		<Topbar client:load />
+		<Topbar pathname={Astro.url.pathname} client:load />
 		
 		<slot />
 		

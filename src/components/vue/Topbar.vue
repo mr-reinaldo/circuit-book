@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
+const props = defineProps<{
+  pathname?: string;
+}>();
+
 const userData = ref({
   name: "Reinaldo",
   avatar_url: "https://github.com/mr-reinaldo.png",
@@ -9,14 +13,12 @@ const userData = ref({
 });
 
 const isDarkTheme = ref(true);
-const currentPath = ref('');
+const currentPath = ref(props.pathname || '');
 const isMobileMenuOpen = ref(false);
 
 const isActive = (path: string): boolean => {
-  if (typeof window === 'undefined') return false;
-  
   // Obter o pathname atual e normalizar
-  let current = window.location.pathname.toLowerCase().trim();
+  let current = currentPath.value.toLowerCase().trim();
   
   // Normalizar o path recebido
   let target = path.toLowerCase().trim();
@@ -106,19 +108,19 @@ const toggleTheme = () => {
     <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
       
       <!-- Brand Logo -->
-      <div class="flex items-center gap-3">
-        <div class="flex h-10 w-10 items-center justify-center rounded font-mono text-xl font-black text-white shadow-sm" style="background:var(--primary)">
+      <a href="/circuit-book/" class="flex items-center gap-3 cursor-pointer select-none group">
+        <div class="flex h-10 w-10 items-center justify-center rounded font-mono text-xl font-black text-white shadow-sm transition-transform duration-200 group-hover:scale-[1.03]" style="background:var(--primary)">
           CB
         </div>
         <div>
-          <h1 class="text-base font-bold tracking-tight sm:text-lg" style="color:var(--text-primary)">
+          <h1 class="text-base font-bold tracking-tight sm:text-lg transition-colors" style="color:var(--text-primary)">
             Circuit Book
           </h1>
           <p class="text-[10px] font-medium tracking-wide uppercase font-mono" style="color:var(--primary-text)">
             IFPB · Telecomunicações
           </p>
         </div>
-      </div>
+      </a>
 
       <!-- Navigation Links -->
       <nav class="hidden md:flex items-center gap-6 h-full">
@@ -242,7 +244,7 @@ const toggleTheme = () => {
     <Transition name="slide-fade">
       <div 
         v-if="isMobileMenuOpen" 
-        class="md:hidden w-full border-t border-[var(--border-subtle)] px-4 py-3 space-y-1.5 flex flex-col transition-all duration-300"
+        class="md:hidden w-full border-t border-(--border-subtle) px-4 py-3 space-y-1.5 flex flex-col transition-all duration-300"
         style="background:var(--surface-card);"
       >
         <a 
