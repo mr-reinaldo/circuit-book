@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import katex from 'katex';
+import { getUnitMultiplier } from '../../utils/mathUtils';
 
 const props = defineProps<{
   selectedPoint: any | null; // Selected row point in active focus
@@ -10,6 +11,7 @@ const props = defineProps<{
   detectedOrder?: number;
   globalVs: number;
   globalVsUnit?: string;
+  globalVoUnit?: string;
   isOpamp?: boolean;
   amplitudeMode?: 'vpp' | 'vrms';
 }>();
@@ -56,25 +58,56 @@ const magnitudeLatex = computed(() => {
   } else {
     const vo = p.vo !== null ? p.vo : 0;
     const vs = props.globalVs;
+    const voUnit = props.globalVoUnit || 'V';
+    const vsUnit = props.globalVsUnit || 'V';
+
+    const voMult = getUnitMultiplier(voUnit);
+    const vsMult = getUnitMultiplier(vsUnit);
+    const voVolts = vo * voMult;
+    const vsVolts = vs * vsMult;
+    const gv = p.gvLinear !== undefined && !isNaN(p.gvLinear) ? p.gvLinear : (voVolts / vsVolts);
 
     if (props.amplitudeMode === 'vrms') {
-      const voRms = vo / (2 * Math.sqrt(2));
-      const gv = voRms / vs;
+      const voRms = voVolts / (2 * Math.sqrt(2));
+      const vsRms = vsVolts;
 
-      formula = 'V_{o\\text{ (rms)}} = \\frac{V_o}{2\\sqrt{2}} \\quad \\text{e} \\quad G_v = \\frac{V_{o\\text{ (rms)}}}{V_s}';
-      substitution = `V_{o\\text{ (rms)}} = \\frac{${formatNum(vo)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voRms)}\\text{ V}`;
-      substitution += `\\\\ G_v = \\frac{${formatNum(voRms)}\\text{ V}}{${formatNum(vs)}\\text{ V}} = ${formatNum(gv, 4)}`;
+      formula = 'V_{o\\text{ (rms)}} = \\frac{V_o \\cdot \\text{mult}_{Vo}}{2\\sqrt{2}} \\quad \\text{e} \\quad G_v = \\frac{V_{o\\text{ (rms)}}}{V_s \\cdot \\text{mult}_{Vs}}';
+      
+      let unitConversionVo = '';
+      if (voUnit !== 'V') {
+        unitConversionVo = `${formatNum(vo)}\\text{ ${voUnit}} = ${formatNum(voVolts, 4)}\\text{ V} \\quad \\Rightarrow \\quad `;
+      }
+      let unitConversionVs = '';
+      if (vsUnit !== 'V') {
+        unitConversionVs = `${formatNum(vs)}\\text{ ${vsUnit}} = ${formatNum(vsVolts, 4)}\\text{ V} \\quad \\Rightarrow \\quad `;
+      }
+
+      substitution = `V_{o\\text{ (rms)}} = ${unitConversionVo}\\frac{${formatNum(voVolts, 4)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voRms, 4)}\\text{ V}`;
+      substitution += `\\\\ G_v = \\frac{${formatNum(voRms, 4)}\\text{ V}}{${unitConversionVs}${formatNum(vsVolts, 4)}\\text{ V}} = ${formatNum(gv, 4)}`;
     } else {
-      const gv = vo / vs;
+      formula = 'G_v = \\frac{V_o \\cdot \\text{mult}_{Vo}}{V_s \\cdot \\text{mult}_{Vs}}';
+      
+      let unitConversionVo = '';
+      if (voUnit !== 'V') {
+        unitConversionVo = `${formatNum(vo)}\\text{ ${voUnit}} = ${formatNum(voVolts, 4)}\\text{ V}`;
+      }
+      let unitConversionVs = '';
+      if (vsUnit !== 'V') {
+        unitConversionVs = `${formatNum(vs)}\\text{ ${vsUnit}} = ${formatNum(vsVolts, 4)}\\text{ V}`;
+      }
 
-      formula = 'G_v = \\frac{V_o}{V_s}';
-      substitution = `G_v = \\frac{${formatNum(vo)}\\text{ V}}{${formatNum(vs)}\\text{ V}} = ${formatNum(gv, 4)}`;
+      let subLines = [];
+      if (unitConversionVo) subLines.push(`V_{o\\text{ (V)}} = ${unitConversionVo}`);
+      if (unitConversionVs) subLines.push(`V_{s\\text{ (V)}} = ${unitConversionVs}`);
+      subLines.push(`G_v = \\frac{${formatNum(voVolts, 4)}\\text{ V}}{${formatNum(vsVolts, 4)}\\text{ V}} = ${formatNum(gv, 4)}`);
+      
+      substitution = subLines.join(' \\\\ ');
     }
   }
 
   const latex = `\\begin{aligned}
-    \\textbf{Formulas:} \\quad & ${formula} \\\\
-    \\textbf{Substituicao:} \\quad & ${substitution}
+    \\textbf{Fórmulas:} \\quad & ${formula} \\\\
+    \\textbf{Substituição:} \\quad & ${substitution}
   \\end{aligned}`;
 
   return katex.renderToString(latex, { throwOnError: false, displayMode: true });
@@ -85,15 +118,15 @@ const dbLatex = computed(() => {
   if (!props.selectedPoint) return '';
 
   const p = props.selectedPoint;
-  const gvLinear = props.isOpamp ? (p.gvLinear || 0) : (p.vo / props.globalVs);
-  const gvDb = gvLinear > 0 ? 20 * Math.log10(gvLinear) : -Infinity;
+  const gvLinear = p.gvLinear !== undefined && !isNaN(p.gvLinear) ? p.gvLinear : (p.vo / props.globalVs);
+  const gvDb = p.gvDb !== undefined && !isNaN(p.gvDb) ? p.gvDb : (gvLinear > 0 ? 20 * Math.log10(gvLinear) : -Infinity);
 
   const formula = 'A_{v\\text{ (dB)}} = 20 \\log_{10}(|A_v|)';
   const substitution = `A_{v\\text{ (dB)}} = 20 \\log_{10}(|${formatNum(gvLinear, 4)}|) = ${formatNum(gvDb, 2)}\\text{ dB}`;
 
   const latex = `\\begin{aligned}
-    \\textbf{Formula:} \\quad & ${formula} \\\\
-    \\textbf{Calculo:} \\quad & ${substitution}
+    \\textbf{Fórmula:} \\quad & ${formula} \\\\
+    \\textbf{Cálculo:} \\quad & ${substitution}
   \\end{aligned}`;
 
   return katex.renderToString(latex, { throwOnError: false, displayMode: true });
@@ -156,29 +189,29 @@ const cutoffFormulaLatex = computed(() => {
   
   if (filterType === 'lowpass') {
     if (order === 1) {
-      label = 'Filtro Passa-Baixas (LPF) de 1ª Ordem';
+      label = 'Filtro Passa-Baixas (LPF) de 1a. Ordem';
       formula = 'f_c = \\frac{1}{2\\pi R C} \\quad \\Rightarrow \\quad \\theta(f_c) = -45^\\circ';
       phaseCVal = '-45^\\circ';
     } else if (isPassive2ndOrder) {
-      label = 'Filtro Passa-Baixas Passivo (LPF) de 2ª Ordem com Efeito de Carga';
+      label = 'Filtro Passa-Baixas Passivo (LPF) de 2a. Ordem com Efeito de Carga';
       formula = 'f_{c,\\text{carga}} = \\frac{\\sqrt{y}}{2\\pi R C} \\approx 0,374 \\cdot f_{c,\\text{nom}} \\quad \\text{onde } y^2 + 7y - 1 = 0 \\Rightarrow y \\approx 0,140 \\quad \\Rightarrow \\quad \\theta(f_c) = -52,55^\\circ';
       phaseCVal = '-52,55^\\circ';
     } else {
-      label = `Filtro Passa-Baixas (LPF) Ativo de ${order}ª Ordem`;
+      label = `Filtro Passa-Baixas (LPF) Ativo de ${order}a. Ordem`;
       formula = 'f_c = \\frac{1}{2\\pi \\sqrt{R_1 R_2 C_1 C_2}} \\quad \\Rightarrow \\quad \\theta(f_c) = -90^\\circ';
       phaseCVal = '-90^\\circ';
     }
   } else if (filterType === 'highpass') {
     if (order === 1) {
-      label = 'Filtro Passa-Altas (HPF) de 1ª Ordem';
+      label = 'Filtro Passa-Altas (HPF) de 1a. Ordem';
       formula = 'f_c = \\frac{1}{2\\pi R C} \\quad \\Rightarrow \\quad \\theta(f_c) = 45^\\circ';
       phaseCVal = '45^\\circ';
     } else if (isPassive2ndOrder) {
-      label = 'Filtro Passa-Altas Passivo (HPF) de 2ª Ordem com Efeito de Carga';
+      label = 'Filtro Passa-Altas Passivo (HPF) de 2a. Ordem com Efeito de Carga';
       formula = 'f_{c,\\text{carga}} = \\frac{\\sqrt{y}}{2\\pi R C} \\approx 2,67 \\cdot f_{c,\\text{nom}} \\quad \\text{onde } y^2 - 7y - 1 = 0 \\Rightarrow y \\approx 7,140 \\quad \\Rightarrow \\quad \\theta(f_c) = 52,55^\\circ';
       phaseCVal = '52,55^\\circ';
     } else {
-      label = `Filtro Passa-Altas (HPF) Ativo de ${order}ª Ordem`;
+      label = `Filtro Passa-Altas (HPF) Ativo de ${order}a. Ordem`;
       formula = 'f_c = \\frac{1}{2\\pi \\sqrt{R_1 R_2 C_1 C_2}} \\quad \\Rightarrow \\quad \\theta(f_c) = 90^\\circ';
       phaseCVal = '90^\\circ';
     }

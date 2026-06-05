@@ -30,64 +30,12 @@ export function analyzeCutoffAndInterpolation(
   detectedFilter?: string;
   detectedOrder?: number;
 } | null {
-  // 1. Process experimental data points, sorting them by frequency
+  // 1. Process experimental data points, filtering and sorting them by frequency
   const sortedPoints = [...experimentalData]
     .filter(p => !isNaN(p.freq) && !isNaN(p.vo) && p.freq > 0)
-    .sort((a, b) => a.freq - b.freq)
-    .map((p): ExperimentalData => {
-      const gvLinear = p.vo / globalVs;
-      const gvDb = 20 * Math.log10(gvLinear);
+    .sort((a, b) => a.freq - b.freq);
 
-      return {
-        ...p,
-        gvLinear,
-        gvDb
-      };
-    });
-
-  if (sortedPoints.length < 2) return null;
-
-  // Check if ALL empirical phases are missing
-  const isAutoPhase = sortedPoints.every(p => p.phase === null || p.phase === undefined || isNaN(p.phase as number));
-
-  // 2. Interpolate omitted phases first in place for sorted points
-  if (!isAutoPhase) {
-    for (let i = 0; i < sortedPoints.length; i++) {
-      if (sortedPoints[i].phase === null || isNaN(sortedPoints[i].phase as number)) {
-        // Find previous filled point
-      let prev: ExperimentalData | null = null;
-      for (let j = i - 1; j >= 0; j--) {
-        if (sortedPoints[j].phase !== null && !isNaN(sortedPoints[j].phase as number)) {
-          prev = sortedPoints[j];
-          break;
-        }
-      }
-      // Find next filled point
-      let next: ExperimentalData | null = null;
-      for (let j = i + 1; j < sortedPoints.length; j++) {
-        if (sortedPoints[j].phase !== null && !isNaN(sortedPoints[j].phase as number)) {
-          next = sortedPoints[j];
-          break;
-        }
-      }
-
-      if (prev && next) {
-        // Logarithmic frequency interpolation
-        const logF = Math.log10(sortedPoints[i].freq);
-        const logFPrev = Math.log10(prev.freq);
-        const logFNext = Math.log10(next.freq);
-        
-        sortedPoints[i].phase = (prev.phase as number) + 
-          ((logF - logFPrev) / (logFNext - logFPrev)) * ((next.phase as number) - (prev.phase as number));
-        sortedPoints[i].isInterpolated = true;
-      } else {
-        // Fallback se não conseguir interpolar
-        sortedPoints[i].phase = 0;
-        sortedPoints[i].isInterpolated = true;
-      }
-      }
-    }
-  }
+  if (sortedPoints.length < 1) return null;
 
   const vsMult = getUnitMultiplier(globalVsUnit);
   const voMult = getUnitMultiplier(globalVoUnit);
@@ -106,6 +54,49 @@ export function analyzeCutoffAndInterpolation(
       sortedPoints[i].gvDb = linearGain > 0 ? 20 * Math.log10(Math.abs(linearGain)) : -Infinity;
     }
   }
+
+  // Check if ALL empirical phases are missing
+  const isAutoPhase = sortedPoints.every(p => p.phase === null || p.phase === undefined || isNaN(p.phase as number));
+
+  // 3. Interpolate omitted phases first in place for sorted points
+  if (sortedPoints.length > 1 && !isAutoPhase) {
+    for (let i = 0; i < sortedPoints.length; i++) {
+      if (sortedPoints[i].phase === null || isNaN(sortedPoints[i].phase as number)) {
+        // Find previous filled point
+        let prev: ExperimentalData | null = null;
+        for (let j = i - 1; j >= 0; j--) {
+          if (sortedPoints[j].phase !== null && !isNaN(sortedPoints[j].phase as number)) {
+            prev = sortedPoints[j];
+            break;
+          }
+        }
+        // Find next filled point
+        let next: ExperimentalData | null = null;
+        for (let j = i + 1; j < sortedPoints.length; j++) {
+          if (sortedPoints[j].phase !== null && !isNaN(sortedPoints[j].phase as number)) {
+            next = sortedPoints[j];
+            break;
+          }
+        }
+
+        if (prev && next) {
+          // Logarithmic frequency interpolation
+          const logF = Math.log10(sortedPoints[i].freq);
+          const logFPrev = Math.log10(prev.freq);
+          const logFNext = Math.log10(next.freq);
+          
+          sortedPoints[i].phase = (prev.phase as number) + 
+            ((logF - logFPrev) / (logFNext - logFPrev)) * ((next.phase as number) - (prev.phase as number));
+          sortedPoints[i].isInterpolated = true;
+        } else {
+          // Fallback se não conseguir interpolar
+          sortedPoints[i].phase = 0;
+          sortedPoints[i].isInterpolated = true;
+        }
+      }
+    }
+  }
+
 
   // 3. Find cutoff point: identify max gain Gv_max (dB)
   let maxGvDb = -Infinity;

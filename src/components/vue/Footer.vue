@@ -36,7 +36,7 @@ onMounted(async () => {
     const data = await response.json();
     count.value = data.count;
   } catch (error) {
-    console.error('[GoatCounter] Erro ao buscar o contador de visitas:', error);
+    console.debug('[GoatCounter] Erro ao buscar o contador (provavelmente bloqueado por adblocker):', error);
   } finally {
     loading.value = false;
   }

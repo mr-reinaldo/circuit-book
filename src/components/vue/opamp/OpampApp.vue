@@ -276,6 +276,7 @@ const exportToCsv = () => {
           :detectedOrder="analysisResult ? analysisResult.detectedOrder : 1"
           :globalVs="globalVinPp"
           :globalVsUnit="globalVinUnit"
+          :globalVoutUnit="globalVoutUnit"
           :amplitudeMode="globalVinMode"
         />
       </div>
@@ -289,7 +290,7 @@ const exportToCsv = () => {
     <!-- Native Vue Confirm Modal -->
     <Teleport to="body" v-if="isMounted">
       <Transition name="fade">
-        <div v-if="isConfirmModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
+        <div v-if="isConfirmModalOpen" class="fixed inset-0 z-100 flex items-center justify-center">
           <div class="absolute inset-0 backdrop-blur-sm" style="background:rgba(0,0,0,0.5)" @click="closeConfirm"></div>
           <Transition name="scale">
             <div v-if="isConfirmModalOpen" class="cb-card relative p-6 w-full max-w-sm" style="box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)">
@@ -316,15 +317,15 @@ const exportToCsv = () => {
 
     <!-- Native Vue Toasts -->
     <Teleport to="body" v-if="isMounted">
-      <div class="fixed bottom-4 right-4 z-[200] flex flex-col gap-2">
+      <div class="fixed bottom-4 right-4 z-200 flex flex-col gap-2">
         <TransitionGroup name="toast">
           <div 
             v-for="toast in toasts" 
             :key="toast.id" 
             :class="[
               'px-4 py-2.5 rounded border shadow-2xl backdrop-blur-md flex items-center gap-2 text-sm font-medium',
-              toast.type === 'success' ? 'text-[var(--success-text)]' :
-              toast.type === 'error' ? 'text-[var(--error-text)]' :
+              toast.type === 'success' ? 'text-(--success-text)' :
+              toast.type === 'error' ? 'text-(--error-text)' :
               ''
             ]"
             :style="toast.type === 'success' ? 'background:var(--success-surface);border-color:rgba(34,197,94,0.3)' : toast.type === 'error' ? 'background:var(--error-surface);border-color:rgba(239,68,68,0.3)' : 'background:var(--surface-card);border-color:var(--border-default);color:var(--text-primary)'"

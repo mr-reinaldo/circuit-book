@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import katex from 'katex';
+import { getUnitMultiplier } from '../../../utils/mathUtilsOpamp';
 import type { OpampDataPoint } from '../../../utils/mathUtilsOpamp';
 
 const props = defineProps<{
@@ -11,6 +12,7 @@ const props = defineProps<{
   detectedOrder?: number;
   globalVs: number;
   globalVsUnit?: string;
+  globalVoutUnit?: string;
   amplitudeMode: 'vpp' | 'vrms';
 }>();
 
@@ -33,23 +35,55 @@ const magnitudeLatex = computed(() => {
   const vppOut = Math.abs(vMax - vMin);
   const vin = props.globalVs;
 
+  const vinUnit = props.globalVsUnit || 'V';
+  const voutUnit = props.globalVoutUnit || 'V';
+
+  const vinMult = getUnitMultiplier(vinUnit);
+  const voutMult = getUnitMultiplier(voutUnit);
+
+  const vinVolts = vin * vinMult;
+  const vMaxVolts = vMax * voutMult;
+  const vMinVolts = vMin * voutMult;
+  const vppOutVolts = vppOut * voutMult;
+
+  const gv = p.gvLinear !== undefined && !isNaN(p.gvLinear) ? p.gvLinear : (vppOutVolts / vinVolts);
+
   let formula = '';
   let substitution = '';
 
   if (props.amplitudeMode === 'vrms') {
-    const voutRms = vppOut / (2 * Math.sqrt(2));
-    const gv = voutRms / vin;
+    const voutRmsVolts = vppOutVolts / (2 * Math.sqrt(2));
 
-    formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\quad , \\quad V_{out\\text{ (rms)}} = \\frac{V_{out\\text{ (pp)}}}{2\\sqrt{2}} \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (rms)}}}{V_{in\\text{ (rms)}}}';
-    substitution = `V_{out\\text{ (pp)}} = |${formatNum(vMax)} - (${formatNum(vMin)})| = ${formatNum(vppOut)}\\text{ V}`;
-    substitution += `\\\\ V_{out\\text{ (rms)}} = \\frac{${formatNum(vppOut)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voutRms)}\\text{ V}`;
-    substitution += `\\\\ A_v = \\frac{${formatNum(voutRms)}\\text{ V}}{${formatNum(vin)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\cdot \\text{mult}_{Vout} \\quad , \\quad V_{out\\text{ (rms)}} = \\frac{V_{out\\text{ (pp)}}}{2\\sqrt{2}} \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (rms)}}}{V_{in} \\cdot \\text{mult}_{Vin}}';
+    
+    let subLines = [];
+    if (voutUnit !== 'V') {
+      subLines.push(`V_{max\\text{ (V)}} = ${formatNum(vMax)}\\text{ ${voutUnit}} = ${formatNum(vMaxVolts, 4)}\\text{ V}`);
+      subLines.push(`V_{min\\text{ (V)}} = ${formatNum(vMin)}\\text{ ${voutUnit}} = ${formatNum(vMinVolts, 4)}\\text{ V}`);
+    }
+    if (vinUnit !== 'V') {
+      subLines.push(`V_{in\\text{ (V)}} = ${formatNum(vin)}\\text{ ${vinUnit}} = ${formatNum(vinVolts, 4)}\\text{ V}`);
+    }
+    subLines.push(`V_{out\\text{ (pp)}} = |${formatNum(vMaxVolts, 4)}\\text{ V} - (${formatNum(vMinVolts, 4)}\\text{ V})| = ${formatNum(vppOutVolts, 4)}\\text{ V}`);
+    subLines.push(`V_{out\\text{ (rms)}} = \\frac{${formatNum(vppOutVolts, 4)}\\text{ V}}{2\\sqrt{2}} = ${formatNum(voutRmsVolts, 4)}\\text{ V}`);
+    subLines.push(`A_v = \\frac{${formatNum(voutRmsVolts, 4)}\\text{ V}}{${formatNum(vinVolts, 4)}\\text{ V}} = ${formatNum(gv, 4)}`);
+
+    substitution = subLines.join(' \\\\ ');
   } else {
-    const gv = vppOut / vin;
+    formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\cdot \\text{mult}_{Vout} \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (pp)}}}{V_{in} \\cdot \\text{mult}_{Vin}}';
 
-    formula = 'V_{out\\text{ (pp)}} = |V_{max} - V_{min}| \\quad \\text{e} \\quad A_v = \\frac{V_{out\\text{ (pp)}}}{V_{in\\text{ (pp)}}}';
-    substitution = `V_{out\\text{ (pp)}} = |${formatNum(vMax)} - (${formatNum(vMin)})| = ${formatNum(vppOut)}\\text{ V}`;
-    substitution += `\\\\ A_v = \\frac{${formatNum(vppOut)}\\text{ V}}{${formatNum(vin)}\\text{ V}} = ${formatNum(gv, 4)}`;
+    let subLines = [];
+    if (voutUnit !== 'V') {
+      subLines.push(`V_{max\\text{ (V)}} = ${formatNum(vMax)}\\text{ ${voutUnit}} = ${formatNum(vMaxVolts, 4)}\\text{ V}`);
+      subLines.push(`V_{min\\text{ (V)}} = ${formatNum(vMin)}\\text{ ${voutUnit}} = ${formatNum(vMinVolts, 4)}\\text{ V}`);
+    }
+    if (vinUnit !== 'V') {
+      subLines.push(`V_{in\\text{ (V)}} = ${formatNum(vin)}\\text{ ${vinUnit}} = ${formatNum(vinVolts, 4)}\\text{ V}`);
+    }
+    subLines.push(`V_{out\\text{ (pp)}} = |${formatNum(vMaxVolts, 4)}\\text{ V} - (${formatNum(vMinVolts, 4)}\\text{ V})| = ${formatNum(vppOutVolts, 4)}\\text{ V}`);
+    subLines.push(`A_v = \\frac{${formatNum(vppOutVolts, 4)}\\text{ V}}{${formatNum(vinVolts, 4)}\\text{ V}} = ${formatNum(gv, 4)}`);
+
+    substitution = subLines.join(' \\\\ ');
   }
 
   const latex = `\\begin{aligned}
@@ -65,8 +99,8 @@ const dbLatex = computed(() => {
   if (!props.selectedPoint) return '';
 
   const p = props.selectedPoint;
-  const gvLinear = p.gvLinear || 0;
-  const gvDb = gvLinear > 0 ? 20 * Math.log10(gvLinear) : -Infinity;
+  const gvLinear = p.gvLinear !== undefined && !isNaN(p.gvLinear) ? p.gvLinear : 0;
+  const gvDb = p.gvDb !== undefined && !isNaN(p.gvDb) ? p.gvDb : (gvLinear > 0 ? 20 * Math.log10(gvLinear) : -Infinity);
 
   const formula = 'A_{v\\text{ (dB)}} = 20 \\log_{10}(|A_v|)';
   const substitution = `A_{v\\text{ (dB)}} = 20 \\log_{10}(|${formatNum(gvLinear, 4)}|) = ${formatNum(gvDb, 2)}\\text{ dB}`;
@@ -131,21 +165,21 @@ const cutoffFormulaLatex = computed(() => {
   
   if (filterType === 'lowpass') {
     if (order === 1) {
-      label = 'Filtro Passa-Baixas Ativo (LPF) de 1ª Ordem';
+      label = 'Filtro Passa-Baixas Ativo (LPF) de 1a. Ordem';
       formula = 'f_c = \\frac{1}{2\\pi R C} \\quad \\Rightarrow \\quad \\theta(f_c) = -45^\\circ';
       phaseCVal = '-45^\\circ';
     } else {
-      label = `Filtro Passa-Baixas Ativo (LPF) de ${order}ª Ordem (Cascata Ideal)`;
+      label = `Filtro Passa-Baixas Ativo (LPF) de ${order}a. Ordem (Cascata Ideal)`;
       formula = 'f_c = \\frac{1}{2\\pi \\sqrt{R_1 R_2 C_1 C_2}} \\quad \\Rightarrow \\quad \\theta(f_c) = -90^\\circ';
       phaseCVal = '-90^\\circ';
     }
   } else if (filterType === 'highpass') {
     if (order === 1) {
-      label = 'Filtro Passa-Altas Ativo (HPF) de 1ª Ordem';
+      label = 'Filtro Passa-Altas Ativo (HPF) de 1a. Ordem';
       formula = 'f_c = \\frac{1}{2\\pi R C} \\quad \\Rightarrow \\quad \\theta(f_c) = 45^\\circ';
       phaseCVal = '45^\\circ';
     } else {
-      label = `Filtro Passa-Altas Ativo (HPF) de ${order}ª Ordem (Cascata Ideal)`;
+      label = `Filtro Passa-Altas Ativo (HPF) de ${order}a. Ordem (Cascata Ideal)`;
       formula = 'f_c = \\frac{1}{2\\pi \\sqrt{R_1 R_2 C_1 C_2}} \\quad \\Rightarrow \\quad \\theta(f_c) = 90^\\circ';
       phaseCVal = '90^\\circ';
     }

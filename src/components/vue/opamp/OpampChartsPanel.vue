@@ -68,6 +68,8 @@ function drawChart(
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   
+  if (innerWidth <= 0 || innerHeight <= 0) return;
+  
   const colors = getThemeColors();
   
   const svg = d3.select(container)
@@ -340,6 +342,8 @@ function drawNyquist(container: HTMLDivElement | null, rawData: OpampDataPoint[]
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   
+  if (innerWidth <= 0 || innerHeight <= 0) return;
+  
   const colors = getThemeColors();
   
   const svg = d3.select(container)
@@ -564,6 +568,8 @@ function drawNichols(container: HTMLDivElement | null, rawData: OpampDataPoint[]
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   
+  if (innerWidth <= 0 || innerHeight <= 0) return;
+  
   const colors = getThemeColors();
   
   const svg = d3.select(container)
@@ -773,6 +779,8 @@ function drawStepResponse(container: HTMLDivElement | null, data: Array<{t: numb
   const margin = { top: 30, right: 30, bottom: 60, left: 60 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
+  
+  if (innerWidth <= 0 || innerHeight <= 0) return;
   
   const colors = getThemeColors();
   

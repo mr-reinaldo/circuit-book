@@ -105,14 +105,18 @@ describe('mathUtils', () => {
   });
 
   describe('analyzeCutoffAndInterpolation', () => {
-    it('returns null if there are fewer than 2 valid points', () => {
+    it('returns null if there are no valid points, but processes a single point successfully', () => {
       const dataEmpty: ExperimentalData[] = [];
       expect(analyzeCutoffAndInterpolation(dataEmpty, 1.0)).toBeNull();
 
       const dataSingle: ExperimentalData[] = [
         { id: 1, freq: 100, vo: 1, phase: 0 }
       ];
-      expect(analyzeCutoffAndInterpolation(dataSingle, 1.0)).toBeNull();
+      const result = analyzeCutoffAndInterpolation(dataSingle, 1.0);
+      expect(result).not.toBeNull();
+      expect(result?.processedPoints).toHaveLength(1);
+      expect(result?.processedPoints[0].gvLinear).toBe(1.0);
+      expect(result?.fc).toBe(100);
     });
 
     it('filters out invalid points (negative frequency, zero frequency, NaN freq, NaN vo)', () => {
